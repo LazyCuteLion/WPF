@@ -14,3 +14,7 @@ C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.csproj.GenerateResourc
 C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.csproj.CoreCompileInputs.cache
 C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.exe
 C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.pdb
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\bin\Debug\pen.png
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.csprojAssemblyReference.cache
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo_Content.g.cs
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\GeneratedInternalTypeHelper.g.cs

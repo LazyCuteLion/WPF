@@ -24,5 +24,17 @@ namespace Demo
         {
             InitializeComponent();
         }
+
+        private void ChinesebrushCanvas_KeyDown(object sender, KeyEventArgs e)
+        {
+            var canvas = sender as ChinesebrushCanvas;
+            switch (e.Key)
+            {
+                case Key.Delete:
+                case Key.Back:
+                    canvas.Strokes.Clear();
+                    break;
+            }
+        }
     }
 }
