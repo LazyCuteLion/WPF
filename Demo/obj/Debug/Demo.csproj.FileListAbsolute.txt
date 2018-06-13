@@ -1,0 +1,16 @@
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\MainWindow.g.cs
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\TransitionFrame.g.cs
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\App.g.cs
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo_MarkupCompile.cache
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo_MarkupCompile.lref
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\TransitionFrame.baml
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\bin\Debug\Demo.exe.config
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\bin\Debug\Demo.exe
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\bin\Debug\Demo.pdb
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\MainWindow.baml
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.g.resources
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.Properties.Resources.resources
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.csproj.GenerateResource.cache
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.csproj.CoreCompileInputs.cache
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.exe
+C:\Users\Sheeeep\Documents\GitHub\WPF\Demo\obj\Debug\Demo.pdb
