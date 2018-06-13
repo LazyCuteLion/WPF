@@ -82,7 +82,7 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="AppSingle.cs" />
+    <Compile Include="AppSingleton.cs" />
     <Compile Include="Hotkey\HotkeyManager.cs" />
     <Compile Include="KeyboardSimulator.cs" />
     <Compile Include="MainWindow.xaml.cs">

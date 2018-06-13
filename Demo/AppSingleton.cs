@@ -11,7 +11,7 @@ using System.Windows;
 
 namespace System
 {
-    public class AppSingle
+    public class AppSingleton
     {
         static Mutex app;
 
