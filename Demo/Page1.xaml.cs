@@ -16,15 +16,25 @@ using System.Windows.Shapes;
 namespace Demo
 {
     /// <summary>
-    /// MainWindow.xaml 的交互逻辑
+    /// Page1.xaml 的交互逻辑
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class Page1 : Page
     {
-        public MainWindow()
+        public Page1()
         {
             InitializeComponent();
         }
 
-       
+        private void ChinesebrushCanvas_KeyDown(object sender, KeyEventArgs e)
+        {
+            var canvas = sender as ChinesebrushCanvas;
+            switch (e.Key)
+            {
+                case Key.Delete:
+                case Key.Back:
+                    canvas.Strokes.Clear();
+                    break;
+            }
+        }
     }
 }
