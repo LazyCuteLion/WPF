@@ -67,11 +67,15 @@
     <Compile Include="Hotkey\NativeMethods.cs" />
     <Compile Include="Hotkey\WeakReferenceCollection.cs" />
     <Compile Include="NetworkExtension.cs" />
+    <Compile Include="Page1.xaml.cs">
+      <DependentUpon>Page1.xaml</DependentUpon>
+    </Compile>
     <Compile Include="StringExtension.cs" />
     <Compile Include="TaskExtension.cs" />
     <Compile Include="TransitionFrame.xaml.cs">
       <DependentUpon>TransitionFrame.xaml</DependentUpon>
     </Compile>
+    <Compile Include="VisualTreeHelper.cs" />
     <Compile Include="VolumeHelper.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
@@ -89,6 +93,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="Page1.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="TransitionFrame.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
