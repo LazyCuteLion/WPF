@@ -15,35 +15,13 @@ using System.Windows.Media.Imaging;
 
 namespace System.Windows.Media.Animation
 {
-    public class StoryBoardFluentContext : IDisposable
+    public static class TransformHelper
     {
-        public UIElement Target { get; private set; }
-        private EventWaitHandle _waitHandle;
-        private Storyboard _storyboard;
-        private TimeSpan? _beginTime = TimeSpan.Zero;
-        private PropertyPath _scaleXPropertyPath;
-        private PropertyPath _scaleYPropertyPath;
-        private PropertyPath _skewXPropertyPath;
-        private PropertyPath _skewYPropertyPath;
-        private PropertyPath _xPropertyPath;
-        private PropertyPath _yPropertyPath;
-        private PropertyPath _anglePropertyPath;
-
-        public StoryBoardFluentContext(UIElement element)
-        {
-            this.Target = element;
-            this.SetRenderTransform();
-            _storyboard = new Storyboard();
-            _storyboard.Completed += Storyboard_Completed;
-        }
-
-        private void SetRenderTransform()
+        public static void SetRenderTransform(this UIElement element)
         {
             //xaml中定义
             //this.Target.RenderTransformOrigin = new Point(0.5, 0.5); 
-
-            var rt = this.Target.RenderTransform;
-
+            var rt = element.RenderTransform;
             var newGroup = new TransformGroup()
             {
                 Children = new TransformCollection()
@@ -54,7 +32,6 @@ namespace System.Windows.Media.Animation
                      new TranslateTransform()
                 }
             };
-
             if (rt is TransformGroup group)
             {
                 var scaleTransform = group.Children.FirstOrDefault(t => t is ScaleTransform);
@@ -89,261 +66,278 @@ namespace System.Windows.Media.Animation
             {
                 newGroup.Children[3] = translateTransform;
             }
-
-            this.Target.RenderTransform = newGroup;
-            _scaleXPropertyPath = ScaleTransform.ScaleXProperty.ToPropertyPath(0);
-            _scaleYPropertyPath = ScaleTransform.ScaleYProperty.ToPropertyPath(0);
-            _skewXPropertyPath = SkewTransform.AngleXProperty.ToPropertyPath(1);
-            _skewYPropertyPath = SkewTransform.AngleYProperty.ToPropertyPath(1);
-            _anglePropertyPath = RotateTransform.AngleProperty.ToPropertyPath(2);
-            _xPropertyPath = TranslateTransform.XProperty.ToPropertyPath(3);
-            _yPropertyPath = TranslateTransform.YProperty.ToPropertyPath(3);
+            element.RenderTransform = newGroup;
         }
 
-        private void Storyboard_Completed(object sender, EventArgs e)
+        public static void SetRenderTransform(this UIElement element, DependencyProperty property, double value)
         {
-            _waitHandle?.Set();
-        }
-
-        public StoryBoardFluentContext Start()
-        {
-            if (_storyboard.CanFreeze)
-                _storyboard.Freeze();
-            _storyboard.Begin();
-            return this;
-        }
-
-        public StoryBoardFluentContext Stop()
-        {
-            _waitHandle?.Set();
-            _storyboard?.Stop();
-            return this;
-        }
-
-        public Task<StoryBoardFluentContext> Wait()
-        {
-            if (_storyboard == null)
-                throw new NullReferenceException("需要先调用 Start() 方法！");
-            if (_waitHandle == null)
-                _waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
-            return Task.Run(() =>
+            Transform find = null;
+            if (element.RenderTransform is TransformGroup group)
             {
-                _waitHandle.WaitOne();
-                return this;
-            });
-        }
-
-        public StoryBoardFluentContext Delay(TimeSpan time)
-        {
-            if (_beginTime.HasValue)
-                _beginTime += time;
-            else
-                _beginTime = time;
-            return this;
-        }
-
-        public StoryBoardFluentContext Delay(double time)
-        {
-            return this.Delay(TimeSpan.FromMilliseconds(time));
-        }
-
-        public StoryBoardFluentContext Repeat(RepeatBehavior repeat)
-        {
-            _storyboard.RepeatBehavior = repeat;
-            return this;
-        }
-
-        public StoryBoardFluentContext Reverse()
-        {
-            _storyboard.AutoReverse = true;
-            return this;
-        }
-
-        public StoryBoardFluentContext Add(Timeline timeline)
-        {
-            _storyboard.Children.Add(timeline);
-            return this;
-        }
-
-        public StoryBoardFluentContext Animate(Duration duration, double from, double to, PropertyPath propertyPath, IEasingFunction easingFunction = null)
-        {
-            DoubleAnimation ani;
-            if (double.IsNaN(from))
-                ani = new DoubleAnimation(to, duration)
+                find = group.Children.FirstOrDefault(f => f.GetType() == property.OwnerType);
+            }
+            else if (element.RenderTransform != Transform.Identity && element.RenderTransform.GetType() == property.OwnerType)
+            {
+                find = element.RenderTransform;
+            }
+            if (find != null)
+                switch (property.Name)
                 {
-                    BeginTime = _beginTime,
-                    EasingFunction = easingFunction
-                };
-            else
-                ani = new DoubleAnimation(from, to, duration)
-                {
-                    EasingFunction = easingFunction,
-                    BeginTime = _beginTime
-                };
-            Storyboard.SetTarget(ani, this.Target);
-            Storyboard.SetTargetProperty(ani, propertyPath);
-            _storyboard.Children.Add(ani);
-            return this;
+                    case "ScaleX":
+                        (find as ScaleTransform).ScaleX = value;
+                        break;
+                    case "ScaleY":
+                        (find as ScaleTransform).ScaleY = value;
+                        break;
+                    case "AngleX":
+                        (find as SkewTransform).AngleX = value;
+                        break;
+                    case "AngleY":
+                        (find as SkewTransform).AngleX = value;
+                        break;
+                    case "Angle":
+                        (find as RotateTransform).Angle = value;
+                        break;
+                    case "X":
+                        (find as TranslateTransform).X = value;
+                        break;
+                    case "Y":
+                        (find as TranslateTransform).Y = value;
+                        break;
+                }
         }
+
+        public static PropertyPath ToTransformPropertyPath(this DependencyProperty property, int index = -1)
+        {
+            if (property.OwnerType.BaseType != typeof(Transform))
+                throw new Exception("[property]基类型必须是[Transform]！");
+
+            if (index > -1 && index < 4)
+                return new PropertyPath($"(0).(1)[{index}].(2)", UIElement.RenderTransformProperty, TransformGroup.ChildrenProperty, property);
+            //return new PropertyPath($"(UIElement.RenderTransform).(TransformGroup.Children)[{index}].({property.OwnerType.Name}.{property.Name})");
+            else
+                return new PropertyPath($"(0).(1)", UIElement.RenderTransformProperty, property);
+            //return new PropertyPath($"(UIElement.RenderTransform).({property.OwnerType.Name}.{property.Name})");
+        }
+
+        public static PropertyPath GetTransformPropertyPath(this UIElement element, DependencyProperty property)
+        {
+            if (property.OwnerType.BaseType == typeof(Transform))
+            {
+                if (element.RenderTransform == Transform.Identity)
+                {
+                    element.SetRenderTransform();
+                }
+                if (element.RenderTransform is TransformGroup transformGroup)
+                {
+                    for (int i = 0; i < transformGroup.Children.Count; i++)
+                    {
+                        if (transformGroup.Children[i].GetType() == property.OwnerType)
+                        {
+                            return property.ToTransformPropertyPath(i);
+                        }
+                    }
+                }
+                else if (element.RenderTransform.GetType() == property.OwnerType)
+                {
+                    return property.ToTransformPropertyPath();
+                }
+            }
+            throw new Exception("[property]基类型必须是[Transform]！");
+        }
+    }
+
+    public static class StoryBoardHelper
+    {
+
+        #region Timeline
+        public static Timeline CreateDoubleAnimation(this UIElement element, Duration duration, double from, double to, PropertyPath propertyPath, IEasingFunction easingFunction = null)
+        {
+            var animation = new DoubleAnimation(to, duration)
+            {
+                EasingFunction = easingFunction
+            };
+
+            if (!double.IsNaN(from))
+                animation.From = from;
+
+            animation.SetTarget(element)
+                             .SetTargetProperty(propertyPath);
+
+            return animation;
+        }
+
+        public static Timeline Delay(this Timeline timeline, TimeSpan time)
+        {
+            timeline.BeginTime = time;
+            return timeline;
+        }
+
+        public static Timeline Delay(this Timeline timeline, double milliseconds)
+        {
+            timeline.BeginTime = TimeSpan.FromMilliseconds(milliseconds);
+            return timeline;
+        }
+
+        public static Timeline Repeat(this Timeline timeline, RepeatBehavior repeat)
+        {
+            timeline.RepeatBehavior = repeat;
+            return timeline;
+        }
+
+        public static Timeline Repeat(this Timeline timeline, int repeat = 0)
+        {
+            timeline.RepeatBehavior = new RepeatBehavior(repeat);
+            return timeline;
+        }
+
+        public static Timeline Reverse(this Timeline timeline)
+        {
+            timeline.AutoReverse = true;
+            return timeline;
+        }
+
+        public static Timeline SetTarget(this Timeline timeline, UIElement element)
+        {
+            Storyboard.SetTarget(timeline, element);
+            return timeline;
+        }
+
+        public static Timeline SetTargetProperty(this Timeline timeline, PropertyPath propertyPath)
+        {
+            Storyboard.SetTargetProperty(timeline, propertyPath);
+            return timeline;
+        }
+
+        public static void Add(this TimelineCollection timelines, params Timeline[] items)
+        {
+            foreach (var item in items)
+            {
+                timelines.Add(item);
+            }
+        }
+        #endregion
 
         #region Fade
-        public StoryBoardFluentContext Fade(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline Fade(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, new PropertyPath(UIElement.OpacityProperty), easingFunction);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, new PropertyPath(UIElement.OpacityProperty), easingFunction);
         }
 
-        public StoryBoardFluentContext Fade(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline Fade(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, new PropertyPath(UIElement.OpacityProperty), easingFunction);
+            return element.CreateDoubleAnimation(duration, from, to, new PropertyPath(UIElement.OpacityProperty), easingFunction);
         }
-
         #endregion
 
         #region Scale
 
-        public StoryBoardFluentContext ScaleX(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline ScaleX(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _scaleXPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleXProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext ScaleX(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline ScaleX(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _scaleXPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleYProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext ScaleY(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline ScaleY(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _scaleYPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleYProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext ScaleY(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline ScaleY(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _scaleYPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleYProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext Scale(Duration duration, double to, IEasingFunction easingFunction = null)
-        {
-            this.ScaleX(duration, to, easingFunction);
-            this.ScaleY(duration, to, easingFunction);
-            return this;
-        }
-
-        public StoryBoardFluentContext Scale(Duration duration, double from, double to, IEasingFunction easingFunction = null)
-        {
-            this.ScaleX(duration, from, to, easingFunction);
-            this.ScaleY(duration, from, to, easingFunction);
-            return this;
-        }
         #endregion
 
         #region Translate
 
-        public StoryBoardFluentContext TranslateX(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline TranslateX(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _xPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(TranslateTransform.XProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext TranslateX(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline TranslateX(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _xPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(TranslateTransform.XProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext TranslateY(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline TranslateY(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _yPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(TranslateTransform.YProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext TranslateY(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline TranslateY(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _yPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(TranslateTransform.YProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
         #endregion
 
         #region Rotate
 
-        public StoryBoardFluentContext Rotate(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline Rotate(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _anglePropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(RotateTransform.AngleProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext Rotate(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline Rotate(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _anglePropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(RotateTransform.AngleProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
         #endregion
 
         #region Skew
 
-        public StoryBoardFluentContext SkewX(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline SkewX(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _skewXPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(SkewTransform.AngleXProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext SkewX(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline SkewX(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _skewXPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(SkewTransform.AngleXProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext SkewY(Duration duration, double to, IEasingFunction easingFunction = null)
+        public static Timeline SkewY(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, double.NaN, to, _skewYPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(SkewTransform.AngleYProperty);
+            return element.CreateDoubleAnimation(duration, double.NaN, to, p, easingFunction);
         }
 
-        public StoryBoardFluentContext SkewY(Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        public static Timeline SkewY(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            return Animate(duration, from, to, _skewYPropertyPath, easingFunction);
+            var p = element.GetTransformPropertyPath(SkewTransform.AngleYProperty);
+            return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
         #endregion
 
-        public void Dispose()
-        {
-            this.Target = null;
-            _waitHandle?.Dispose();
-            _waitHandle = null;
-            _storyboard = null;
-        }
     }
 
     public static class AnimationHelper
     {
-        public static StoryBoardFluentContext StartBuildAnimation(this UIElement element)
-        {
-            return new StoryBoardFluentContext(element);
-        }
+        private static readonly Dictionary<string, ObjectAnimationUsingKeyFrames> AnimationCache =
+            new Dictionary<string, ObjectAnimationUsingKeyFrames>();
 
-        public static PropertyPath ToPropertyPath(this DependencyProperty property, int index = -1)
-        {
-            if (property.OwnerType.BaseType != typeof(Transform))
-                return new PropertyPath(property);
-
-            if (index > -1 && index < 4)
-                return new PropertyPath($"(UIElement.RenderTransform).(TransformGroup.Children)[{index}].({property.OwnerType.Name}.{property.Name})");
-            else
-                return new PropertyPath($"(UIElement.RenderTransform).({property.OwnerType.Name}.{property.Name})");
-        }
-
-        public static PropertyPath GetPropertyPath(this UIElement element, DependencyProperty property)
-        {
-            if (element.RenderTransform is TransformGroup transformGroup)
-            {
-                for (int i = 0; i < transformGroup.Children.Count; i++)
-                {
-                    if (transformGroup.Children[i].GetType() == property.OwnerType)
-                    {
-                        return new PropertyPath($"(UIElement.RenderTransform).(TransformGroup.Children)[{i}].({property.OwnerType.Name}.{property.Name})");
-                    }
-                }
-            }
-            else if (element.RenderTransform.GetType() == property.OwnerType)
-                return new PropertyPath($"(UIElement.RenderTransform).({property.OwnerType.Name}.{property.Name})");
-
-            return new PropertyPath(property);
-        }
-
-        public static Storyboard Animate(this Image image, int fps = 30, string directory = "")
+        public static async Task<Storyboard> Animate(this Image image, int width, int fps = 30, string directory = "")
         {
             if (string.IsNullOrEmpty(directory))
             {
@@ -366,41 +360,60 @@ namespace System.Windows.Media.Animation
 
             if (!string.IsNullOrEmpty(directory) && Directory.Exists(directory))
             {
-                var files = Directory.GetFiles(directory, "*.png");
-                if (files.Length > 0)
+                ObjectAnimationUsingKeyFrames animation = null;
+                if (AnimationCache.ContainsKey(directory))
                 {
-                    var sources = new BitmapImage[files.Length];
-
-                    for (int i = 0; i < files.Length; i++)
-                    {
-                        var b = new BitmapImage();
-                        b.BeginInit();
-                        b.CacheOption = BitmapCacheOption.OnLoad;
-                        b.CreateOptions = BitmapCreateOptions.DelayCreation;
-                        b.DecodePixelWidth = 600;
-                        b.UriSource = new Uri(files[i], UriKind.Absolute);
-                        b.EndInit();
-                        b.Freeze();
-                        sources[i] = b;
-                    }
-
-                    if (image.Source == null)
-                        image.Source = sources[0];
-
-                    var s = new Storyboard();
-                    var ani = new ObjectAnimationUsingKeyFrames();
-                    var delay = TimeSpan.FromMilliseconds(1000.0 / fps);
-                    var time = TimeSpan.Zero;
-                    foreach (var item in sources)
-                    {
-                        ani.KeyFrames.Add(new DiscreteObjectKeyFrame(item, time += delay));
-                    }
-                    Storyboard.SetTarget(ani, image);
-                    Storyboard.SetTargetProperty(ani, new PropertyPath(Image.SourceProperty));
-                    ani.Freeze();
-                    s.Children.Add(ani);
-                    return s;
+                    animation = AnimationCache[directory];
                 }
+                else
+                {
+                    var files = Directory.GetFiles(directory, "*.png");
+                    if (files.Length > 0)
+                    {
+                        var sources = new BitmapImage[files.Length];
+                        if (width <= 0)
+                        {
+                            if (image.Width > 0)
+                                width = (int)image.Width;
+                            else if (image.ActualWidth > 0)
+                                width = (int)image.ActualWidth;
+                        }
+
+                        await Task.Run(() =>
+                        {
+                            for (int i = 0; i < files.Length; i++)
+                            {
+                                var b = new BitmapImage();
+                                b.BeginInit();
+                                b.CacheOption = BitmapCacheOption.OnLoad;
+                                //b.CreateOptions = BitmapCreateOptions.DelayCreation;
+                                if (width > 0)
+                                    b.DecodePixelWidth = width;
+                                b.UriSource = new Uri(files[i], UriKind.Absolute);
+                                b.EndInit();
+                                b.Freeze();
+                                sources[i] = b;
+                            }
+                        });
+                        if (image.Source == null)
+                            image.Source = sources[0];
+                        animation = new ObjectAnimationUsingKeyFrames();
+                        var delay = TimeSpan.FromMilliseconds(1000.0 / fps);
+                        var time = TimeSpan.Zero;
+                        foreach (var item in sources)
+                        {
+                            animation.KeyFrames.Add(new DiscreteObjectKeyFrame(item, time += delay));
+                        }
+                        AnimationCache[directory] = animation;
+                    }
+                }
+
+                var s = new Storyboard();
+                Storyboard.SetTarget(animation, image);
+                Storyboard.SetTargetProperty(animation, new PropertyPath(Image.SourceProperty));
+                s.Children.Add(animation);
+
+                return s;
             }
 
             throw new Exception("请设置Image的Source或者传入参数[directory:序列帧文件夹]");
@@ -424,7 +437,6 @@ namespace System.Windows.Media.Animation
                 s.Freeze();
             return s;
         }
-
     }
 
     public class ImageExt
@@ -440,22 +452,40 @@ namespace System.Windows.Media.Animation
         }
 
         public static readonly DependencyProperty PngSequenceAnimationProperty =
-            DependencyProperty.RegisterAttached("PngSequenceAnimation", typeof(PngSequenceAnimation), typeof(ImageExt), new PropertyMetadata(null, new PropertyChangedCallback((s, e) =>
+            DependencyProperty.RegisterAttached("PngSequenceAnimation", typeof(PngSequenceAnimation), typeof(ImageExt),
+                new PropertyMetadata(null, new PropertyChangedCallback((s, e) =>
             {
                 if (s is Image img)
                 {
+                    img.IsVisibleChanged += OnIsVisibleChanged;
                     img.Unloaded += OnUnloaded;
-                    var animation = e.NewValue as PngSequenceAnimation;
-                    animation.BuildAnimation(img);
                 }
             })));
+
+        private static void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            var img = sender as Image;
+            var animation = GetPngSequenceAnimation(img);
+            if (animation != null)
+            {
+                if (img.IsVisible)
+                {
+                    animation.BuildAnimation(img);
+                }
+                else
+                {
+                    animation.Stop();
+                }
+            }
+        }
+
 
         private static void OnUnloaded(object sender, RoutedEventArgs e)
         {
             var img = sender as Image;
             img.Unloaded -= OnUnloaded;
             var animation = GetPngSequenceAnimation(img);
-            animation.Stop();
+            animation?.Stop();
         }
     }
 
@@ -468,17 +498,16 @@ namespace System.Windows.Media.Animation
         public int FPS { get; set; } = 30;
         public string PngDirectory { get; set; }
         public int DecodePixelWidth { get; set; } = 0;
-        public int DecodePixelHeight { get; set; } = 0;
 
         private Storyboard storyboard;
 
-        public void BuildAnimation(Image image)
+        public async void BuildAnimation(Image image)
         {
-            storyboard = image.Animate(this.FPS, this.PngDirectory);
+            storyboard = await image.Animate(this.DecodePixelWidth, this.FPS, this.PngDirectory);
             storyboard.RepeatBehavior = this.RepeatBehavior;
             storyboard.AutoReverse = this.AutoReverse;
             storyboard.BeginTime = this.BeginTime;
-            storyboard.Freeze();
+            //storyboard.Freeze();
             if (this.AutoStart)
                 this.Begin();
         }
@@ -504,4 +533,5 @@ namespace System.Windows.Media.Animation
         }
 
     }
+
 }

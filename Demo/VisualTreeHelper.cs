@@ -20,7 +20,7 @@ namespace System.Windows.Controls
                 }
                 else
                 {
-                    return element.FindParent<T>();
+                    return parent.FindParent<T>();
                 }
             }
             return null;
@@ -38,7 +38,7 @@ namespace System.Windows.Controls
                 }
                 else
                 {
-                    return element.FindParent<T>(name);
+                    return parent.FindParent<T>(name);
                 }
             }
             return null;
@@ -55,9 +55,9 @@ namespace System.Windows.Controls
                 }
                 else
                 {
-                    child = element.FindChild<T>();
-                    if (child != null)
-                        return (T)child;
+                   var child2 = child.FindChild<T>();
+                    if (child2 != null)
+                        return child2;
                 }
             }
             return null;
@@ -74,9 +74,9 @@ namespace System.Windows.Controls
                 }
                 else
                 {
-                    child = element.FindChild<T>(name);
-                    if (child != null)
-                        return (T)child;
+                    var child2 = child.FindChild<T>(name);
+                    if (child2 != null)
+                        return child2;
                 }
             }
             return null;
