@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Behaviors;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Documents;
@@ -32,9 +31,9 @@ namespace Demo
         {
             //for (int i = 0; i < 3; i++)
             //{
-            await Task.Delay(500);
-            var b = Interaction.GetBehaviors(sender as UIElement).FirstOrDefault() as PngSequenceBehavior;
-            b.Begin();
+            //await Task.Delay(500);
+            //var b = Interaction.GetBehaviors(sender as UIElement).FirstOrDefault() as PngSequenceBehavior;
+            //b.Begin();
             //b.Clear();
             //(sender as FrameworkElement).Visibility = Visibility.Hidden;
             //    await Task.Delay(5000);
@@ -45,13 +44,30 @@ namespace Demo
 
         protected override void OnMouseRightButtonDown(MouseButtonEventArgs e)
         {
+            box.Children.Clear();
             base.OnMouseRightButtonDown(e);
         }
 
         private void Image_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var b = Interaction.GetBehaviors(sender as UIElement).FirstOrDefault() as PngSequenceBehavior;
-            b.Begin();
+            var animation = ImageExt.GetSequenceFrameAnimation(sender as Image);
+            if (animation.IsPaused == true)
+                animation.Resume();
+            else if (animation.IsPaused == false)
+            {
+                if (animation.IsComplete)
+                    animation.Begin();
+                else
+                    animation.Pause();
+            }
+            else
+                animation.Begin();
+        }
+
+        private void SequenceFrameAnimation_Completed(object sender, EventArgs e)
+        {
+            var animation = ImageExt.GetSequenceFrameAnimation(sender as Image);
+            animation.Dispose();
         }
     }
 }

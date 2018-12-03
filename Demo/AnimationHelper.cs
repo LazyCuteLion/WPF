@@ -82,6 +82,7 @@ namespace System.Windows.Media.Animation
                 find = element.RenderTransform;
             }
             if (find != null)
+            {
                 switch (property.Name)
                 {
                     case "ScaleX":
@@ -106,6 +107,7 @@ namespace System.Windows.Media.Animation
                         (find as TranslateTransform).Y = value;
                         break;
                 }
+            }
         }
 
         public static PropertyPath ToTransformPropertyPath(this DependencyProperty property, int index = -1)
@@ -117,7 +119,7 @@ namespace System.Windows.Media.Animation
                 return new PropertyPath($"(0).(1)[{index}].(2)", UIElement.RenderTransformProperty, TransformGroup.ChildrenProperty, property);
             //return new PropertyPath($"(UIElement.RenderTransform).(TransformGroup.Children)[{index}].({property.OwnerType.Name}.{property.Name})");
             else
-                return new PropertyPath($"(0).(1)", UIElement.RenderTransformProperty, property);
+                return new PropertyPath("(0).(1)", UIElement.RenderTransformProperty, property);
             //return new PropertyPath($"(UIElement.RenderTransform).({property.OwnerType.Name}.{property.Name})");
         }
 
@@ -150,8 +152,36 @@ namespace System.Windows.Media.Animation
 
     public static class StoryBoardHelper
     {
-
         #region Timeline
+        public static void Begin(this Timeline animation)
+        {
+            if (animation is Storyboard s)
+            {
+                s.Begin();
+            }
+            else
+            {
+                s = new Storyboard();
+                s.Children.Add(animation);
+                s.Begin();
+            }
+        }
+
+        public static Task PlayAsync(this Timeline animation)
+        {
+            if (animation is Storyboard s)
+            {
+                s.Begin();
+            }
+            else
+            {
+                s = new Storyboard();
+                s.Children.Add(animation);
+                s.Begin();
+            }
+            return Task.Delay(animation.Duration.TimeSpan);
+        }
+
         public static Timeline CreateDoubleAnimation(this UIElement element, Duration duration, double from, double to, PropertyPath propertyPath, IEasingFunction easingFunction = null)
         {
             var animation = new DoubleAnimation(to, duration)
@@ -162,8 +192,7 @@ namespace System.Windows.Media.Animation
             if (!double.IsNaN(from))
                 animation.From = from;
 
-            animation.SetTarget(element)
-                             .SetTargetProperty(propertyPath);
+            animation.SetTarget(element).SetTargetProperty(propertyPath);
 
             return animation;
         }
@@ -220,6 +249,16 @@ namespace System.Windows.Media.Animation
         #endregion
 
         #region Fade
+        public static Timeline FadeIn(this UIElement element, int milliseconds)
+        {
+            return element.Fade(TimeSpan.FromMilliseconds(milliseconds), 1);
+        }
+
+        public static Timeline FadeOut(this UIElement element, int milliseconds)
+        {
+            return element.Fade(TimeSpan.FromMilliseconds(milliseconds), 0);
+        }
+
         public static Timeline Fade(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
             return element.CreateDoubleAnimation(duration, double.NaN, to, new PropertyPath(UIElement.OpacityProperty), easingFunction);
@@ -233,6 +272,23 @@ namespace System.Windows.Media.Animation
 
         #region Scale
 
+        public static Storyboard Scale(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
+        {
+            var s = new Storyboard();
+            s.Children.Add(
+                element.ScaleX(duration, to, easingFunction),
+                element.ScaleY(duration, to, easingFunction));
+            return s;
+        }
+
+        public static Storyboard Scale(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
+        {
+            var s = new Storyboard();
+            s.Children.Add(element.ScaleX(duration, from, to, easingFunction));
+            s.Children.Add(element.ScaleY(duration, from, to, easingFunction));
+            return s;
+        }
+
         public static Timeline ScaleX(this UIElement element, Duration duration, double to, IEasingFunction easingFunction = null)
         {
             var p = element.GetTransformPropertyPath(ScaleTransform.ScaleXProperty);
@@ -241,7 +297,7 @@ namespace System.Windows.Media.Animation
 
         public static Timeline ScaleX(this UIElement element, Duration duration, double from, double to, IEasingFunction easingFunction = null)
         {
-            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleYProperty);
+            var p = element.GetTransformPropertyPath(ScaleTransform.ScaleXProperty);
             return element.CreateDoubleAnimation(duration, from, to, p, easingFunction);
         }
 
@@ -332,5 +388,5 @@ namespace System.Windows.Media.Animation
         #endregion
 
     }
-    
+
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,13 +11,67 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 
 
-namespace System.Windows.Behaviors
+namespace System.Windows.Media.Animation
 {
-    public class PngSequenceBehavior : Behavior<Image>
+    public static class ImageExt
     {
-        static readonly Dictionary<string, BitmapSource[]> PngSequenceCache = new Dictionary<string, BitmapSource[]>();
-        static readonly Dictionary<string, int> PngSequenceCacheCount = new Dictionary<string, int>();
+        public static readonly Dictionary<string, BitmapSource[]> FrameCache = new Dictionary<string, BitmapSource[]>();
+        public static readonly Dictionary<string, int> FrameCacheReferences = new Dictionary<string, int>();
 
+        public static SequenceFrameAnimation GetSequenceFrameAnimation(Image obj)
+        {
+            return (SequenceFrameAnimation)obj.GetValue(SequenceFrameAnimationProperty);
+        }
+
+        public static void SetSequenceFrameAnimation(Image obj, SequenceFrameAnimation value)
+        {
+            obj.SetValue(SequenceFrameAnimationProperty, value);
+        }
+
+        public static readonly DependencyProperty SequenceFrameAnimationProperty =
+            DependencyProperty.RegisterAttached("SequenceFrameAnimation",
+                typeof(SequenceFrameAnimation), typeof(ImageExt), new PropertyMetadata(new PropertyChangedCallback((s, e) =>
+                {
+                    if (e.OldValue is SequenceFrameAnimation animation && animation != null)
+                    {
+                        animation.Stop();
+                        animation.Dispose();
+                    }
+
+                    if (s is Image img)
+                    {
+                        img.IsVisibleChanged += OnIsVisibleChanged;
+                        img.Unloaded += OnUnloaded;
+                        animation = e.NewValue as SequenceFrameAnimation;
+                        animation.CreateStoryboard(img);
+                    }
+
+                })));
+
+        private static void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            var animation = GetSequenceFrameAnimation(sender as Image);
+            animation.Stop();
+            animation.Dispose();
+        }
+
+        private static void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            var img = sender as Image;
+            var animation = GetSequenceFrameAnimation(img);
+            if (!img.IsVisible)
+            {
+                animation.Stop();
+            }
+            else if (animation.AutoStart)
+            {
+                animation.Begin();
+            }
+        }
+    }
+
+    public class SequenceFrameAnimation
+    {
         public bool AutoStart { get; set; }
         public RepeatBehavior RepeatBehavior { get; set; } = new RepeatBehavior(1);
         public TimeSpan BeginTime { get; set; } = TimeSpan.Zero;
@@ -25,16 +80,47 @@ namespace System.Windows.Behaviors
 
         public int DecodePixelWidth { get; set; } = 0;
 
+        /// <summary>
+        /// 动画是否暂停
+        /// 未播放前为null
+        /// </summary>
+        public bool? IsPaused
+        {
+            get
+            {
+                try
+                {
+                    if (storyboard == null)
+                        return false;
+                    return storyboard.GetIsPaused();
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+        }
+
+        public bool IsComplete
+        {
+            get
+            {
+                if (storyboard == null)
+                    return true;
+                return storyboard.GetCurrentState() == ClockState.Stopped;
+            }
+        }
+
         private string directory;
         public string PngDirectory
         {
             get
             {
-                //if (DesignerProperties.GetIsInDesignMode(this))
-                //    return;
+                if (DesignerProperties.GetIsInDesignMode(Target))
+                    return directory;
                 if (string.IsNullOrEmpty(directory))
                 {
-                    var path = AssociatedObject.Source?.ToString();
+                    var path = Target.Source?.ToString();
                     if (!string.IsNullOrEmpty(path))
                     {
                         if (path.StartsWith("file:"))
@@ -46,7 +132,6 @@ namespace System.Windows.Behaviors
                         }
                     }
                 }
-
                 return directory;
             }
             set
@@ -64,58 +149,27 @@ namespace System.Windows.Behaviors
         }
 
         private Storyboard storyboard;
+        public Image Target { get; private set; }
 
-        protected override void OnAttached()
+        public void CreateStoryboard(Image target)
         {
-            base.OnAttached();
-            this.AssociatedObject.IsVisibleChanged += AssociatedObject_IsVisibleChanged;
-            this.AssociatedObject.Unloaded += AssociatedObject_Unloaded;
-        }
-
-        private void AssociatedObject_Unloaded(object sender, RoutedEventArgs e)
-        {
-            this.Stop();
-            this.Clear();
-        }
-
-        private void AssociatedObject_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-        {
-            if (!AssociatedObject.IsVisible)
-            {
-                this.Stop();
-            }
-            else if (this.AutoStart)
-            {
-                this.Begin();
-            }
-        }
-
-        protected override void OnDetaching()
-        {
-            base.OnDetaching();
-            this.AssociatedObject.Unloaded -= AssociatedObject_Unloaded;
-            this.AssociatedObject.IsVisibleChanged -= AssociatedObject_IsVisibleChanged;
-        }
-
-        private void CreateStoryboard()
-        {
+            this.Target = target;
             if (!string.IsNullOrEmpty(PngDirectory) && Directory.Exists(PngDirectory))
             {
                 var width = this.DecodePixelWidth;
-                var image = this.AssociatedObject;
                 if (width <= 0)
                 {
-                    if (image.Width > 0)
-                        width = (int)image.Width;
-                    else if (image.ActualWidth > 0)
-                        width = (int)image.ActualWidth;
+                    if (Target.Width > 0)
+                        width = (int)Target.Width;
+                    else if (Target.ActualWidth > 0)
+                        width = (int)Target.ActualWidth;
                 }
 
                 BitmapSource[] sources = null;
-                if (PngSequenceCache.ContainsKey(PngDirectory))
+                if (ImageExt.FrameCache.ContainsKey(PngDirectory))
                 {
-                    sources = PngSequenceCache[PngDirectory];
-                    PngSequenceCacheCount[PngDirectory]++;
+                    sources = ImageExt.FrameCache[PngDirectory];
+                    ImageExt.FrameCacheReferences[PngDirectory]++;
                 }
                 else
                 {
@@ -136,16 +190,16 @@ namespace System.Windows.Behaviors
                             b.Freeze();
                             sources[i] = b;
                         }
-                        PngSequenceCache[PngDirectory] = sources;
-                        PngSequenceCacheCount[PngDirectory] = 1;
+                        ImageExt.FrameCache[PngDirectory] = sources;
+                        ImageExt.FrameCacheReferences[PngDirectory] = 1;
                     }
                 }
 
                 if (sources != null && sources.Length > 0)
                 {
-                    if (image.Source == null)
+                    if (Target.Source == null)
                     {
-                        image.Source = sources[0];
+                        Target.Source = sources[0];
                     }
                     var delay = TimeSpan.FromMilliseconds(1000.0 / this.FPS);
                     var time = TimeSpan.Zero;
@@ -154,7 +208,7 @@ namespace System.Windows.Behaviors
                     {
                         animation.KeyFrames.Add(new DiscreteObjectKeyFrame(item, time += delay));
                     }
-                    Storyboard.SetTarget(animation, image);
+                    Storyboard.SetTarget(animation, Target);
                     Storyboard.SetTargetProperty(animation, new PropertyPath(Image.SourceProperty));
                     animation.Freeze();
                     storyboard = new Storyboard();
@@ -162,7 +216,7 @@ namespace System.Windows.Behaviors
                     storyboard.RepeatBehavior = this.RepeatBehavior;
                     storyboard.AutoReverse = this.AutoReverse;
                     storyboard.BeginTime = this.BeginTime;
-                    storyboard.FillBehavior = FillBehavior.HoldEnd;
+                    storyboard.FillBehavior = FillBehavior.Stop;
                     storyboard.Completed += Storyboard_Completed;
                     storyboard.Freeze();
                 }
@@ -171,14 +225,16 @@ namespace System.Windows.Behaviors
                 throw new Exception("创建序列帧动画失败！");
         }
 
+        public event EventHandler Completed;
+
         private void Storyboard_Completed(object sender, EventArgs e)
         {
             Task.Run(() =>
             {
                 //以此种特殊方式，否则无法释放Storyboard
-                this.Dispatcher.Invoke(() =>
+                this.Target.Dispatcher.Invoke(() =>
                 {
-                    this.Clear();
+                    Completed?.Invoke(this.Target, e);
                 });
             });
         }
@@ -186,39 +242,45 @@ namespace System.Windows.Behaviors
         public void Begin()
         {
             if (storyboard == null)
-                CreateStoryboard();
+                throw new Exception("Storyboard未初始化或已经释放！");
             storyboard.Begin();
         }
 
         public void Pause()
         {
-            storyboard?.Pause();
+            if (storyboard == null)
+                throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard.Pause();
         }
 
         public void Resume()
         {
-            storyboard?.Resume();
+            if (storyboard == null)
+                throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard.Resume();
         }
 
         public void Stop()
         {
-            storyboard?.Stop();
+            if (storyboard == null)
+                throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard.Stop();
         }
 
-        public void Clear()
+        public void Dispose()
         {
-            this.AssociatedObject.BeginAnimation(Image.SourceProperty, null); //这一行是关键！清除动画，移除BitmapSource引用
+            Target.BeginAnimation(Image.SourceProperty, null); //这一行是关键！清除动画，移除BitmapSource引用
             storyboard = null;
-            if (PngSequenceCacheCount.TryGetValue(PngDirectory, out int count) && count > 0)
+            if (ImageExt.FrameCacheReferences.TryGetValue(PngDirectory, out int count) && count > 0)
             {
                 count--;
-                PngSequenceCacheCount[PngDirectory] = count;
+                ImageExt.FrameCacheReferences[PngDirectory] = count;
                 if (count < 1)
                 {
-                    var s = PngSequenceCache[PngDirectory];
+                    var s = ImageExt.FrameCache[PngDirectory];
                     Array.Clear(s, 0, s.Length);
                     s = null;
-                    PngSequenceCache.Remove(PngDirectory);
+                    ImageExt.FrameCache.Remove(PngDirectory);
                     GC.Collect();
                 }
             }

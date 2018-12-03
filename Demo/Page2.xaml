@@ -4,8 +4,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:Demo"
-      xmlns:i="http://schemas.microsoft.com/expression/2010/interactivity"
-      xmlns:b="clr-namespace:System.Windows.Behaviors"
+      xmlns:ani="clr-namespace:System.Windows.Media.Animation"
       mc:Ignorable="d" Background="White"
       d:DesignHeight="450" d:DesignWidth="800"
       Title="Page2">
@@ -17,6 +16,7 @@
                 <Setter Property="Height" Value="200"/>
                 <EventSetter Event="Loaded" Handler="Image_Loaded"/>
                 <EventSetter Event="MouseLeftButtonDown" Handler="Image_MouseLeftButtonDown"/>
+              
             </Style>
         </Grid.Resources>
         <Grid.RowDefinitions>
@@ -26,68 +26,23 @@
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" >
             <Image  Source="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\乘风启航\乘风启航_00001.png">
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior  DecodePixelWidth="400" RepeatBehavior="3x"/>
-                </i:Interaction.Behaviors>
+                <ani:ImageExt.SequenceFrameAnimation>
+                    <ani:SequenceFrameAnimation DecodePixelWidth="400"   Completed="SequenceFrameAnimation_Completed"/>
+                </ani:ImageExt.SequenceFrameAnimation>
             </Image>
 
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    DecodePixelWidth="400"
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\国际战略\"/>
-                </i:Interaction.Behaviors>
+            <Image  Source="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\国际战略\国际战略_00001.png">
+                <ani:ImageExt.SequenceFrameAnimation>
+                    <ani:SequenceFrameAnimation DecodePixelWidth="400"   Completed="SequenceFrameAnimation_Completed"/>
+                </ani:ImageExt.SequenceFrameAnimation>
             </Image>
 
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior     DecodePixelWidth="400"
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\日益精进\"/>
-                </i:Interaction.Behaviors>
+            <Image  Source="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\日益精进\日益精进_00001.png">
+                <ani:ImageExt.SequenceFrameAnimation>
+                    <ani:SequenceFrameAnimation DecodePixelWidth="400"   Completed="SequenceFrameAnimation_Completed"/>
+                </ani:ImageExt.SequenceFrameAnimation>
             </Image>
         </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Grid.Row="1">
-            <Image  Source="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\乘风启航\乘风启航_00001.png">
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" />
-                </i:Interaction.Behaviors>
-            </Image>
-
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" 
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\国际战略\"/>
-                </i:Interaction.Behaviors>
-            </Image>
-
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" 
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\日益精进\"/>
-                </i:Interaction.Behaviors>
-            </Image>
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Grid.Row="2">
-            <Image  Source="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\乘风启航\乘风启航_00001.png">
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" />
-                </i:Interaction.Behaviors>
-            </Image>
-
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" 
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\国际战略\"/>
-                </i:Interaction.Behaviors>
-            </Image>
-
-            <Image  >
-                <i:Interaction.Behaviors>
-                    <b:PngSequenceBehavior    AutoReverse="True" 
-                                         PngDirectory="D:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\日益精进\"/>
-                </i:Interaction.Behaviors>
-            </Image>
-        </StackPanel>
+       
     </Grid>
 </Page>
