@@ -12,10 +12,13 @@
         <Style TargetType="FrameworkElement" x:Key="base">
             <Setter Property="mt:MultiTouchHelper.ManipulationMode" Value="All"/>
             <Setter Property="mt:MultiTouchHelper.WaitForRecover" Value="0:0:2"/>
-            <Setter Property="mt:MultiTouchHelper.MinimumScale" Value="0.2"/>
+            <Setter Property="mt:MultiTouchHelper.MinimumScale" Value="1"/>
             <Setter Property="IsManipulationEnabled" Value="True"/>
         </Style>
-        <Style TargetType="Rectangle" BasedOn="{StaticResource base}"/>
+        <Style TargetType="Rectangle">
+            <Setter Property="Width" Value="300"/>
+            <Setter Property="Height" Value="200"/>
+        </Style>
         <Style TargetType="ListViewItem" BasedOn="{StaticResource base}"/>
         <Style TargetType="ListView">
             <Setter Property="ScrollViewer.CanContentScroll" Value="False"/>
@@ -23,14 +26,21 @@
             <Setter Property="ItemsPanel">
                 <Setter.Value>
                     <ItemsPanelTemplate>
-                        <Canvas mt:MultiTouchHelper.IsContenter="True"/>
+                        <WrapPanel mt:MultiTouchHelper.IsContenter="True"/>
                     </ItemsPanelTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
     </Page.Resources>
-    <Canvas mt:MultiTouchHelper.IsContenter="True" >
-        <Rectangle Fill="Blue" Width="300" Height="200" Name="rect" Canvas.Left="0"/>
-        <Rectangle Fill="Green" Width="300" Height="200" mt:MultiTouchHelper.MinimumScale="1"/>
-    </Canvas>
+    <ListView  Name="box" >
+        <Rectangle Fill="Blue"  Name="rect" />
+        <Rectangle Fill="Green"  >
+            <!--<Rectangle.RenderTransform>
+                <TransformGroup>
+                   <ScaleTransform ScaleX="2" ScaleY="2"/>
+                    <TranslateTransform X="300" Y="200"/> 
+                </TransformGroup>
+            </Rectangle.RenderTransform>-->
+        </Rectangle>
+    </ListView>
 </Page>

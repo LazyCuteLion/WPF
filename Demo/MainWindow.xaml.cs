@@ -27,16 +27,21 @@ namespace Demo
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            var index = int.Parse(frame.Content.ToString().Substring(9));
             switch (e.Key)
             {
                 case Key.Left:
-                    if (frame.CanGoBack)
-                        frame.GoBack();
+                    if (index > 1)
+                        index -= 1;
+                    frame.Navigate(new Uri($"page{index}.xaml", UriKind.Relative));
                     break;
                 case Key.Right:
-                    frame.Navigate(new Page2());
+                    if (index < 3)
+                        index += 1;
+                    frame.Navigate(new Uri($"page{index}.xaml", UriKind.Relative));
                     break;
             }
+          
             base.OnKeyDown(e);
         }
     }

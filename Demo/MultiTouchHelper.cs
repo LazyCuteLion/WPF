@@ -22,6 +22,7 @@ namespace System.Windows.Input
     {
         private readonly static Dictionary<int, double> _currentScale = new Dictionary<int, double>();
         private readonly static Dictionary<int, Storyboard> _recoverStoryboard = new Dictionary<int, Storyboard>();
+        private readonly static Dictionary<int, Matrix> _origin = new Dictionary<int, Matrix>();
 
         public static ManipulationModes GetManipulationMode(UIElement obj)
         {
@@ -42,27 +43,27 @@ namespace System.Windows.Input
                     if (e.NewValue.Equals(ManipulationModes.None))
                     {
                         element.MouseWheel -= OnMouseWheel;
-                        element.MouseDown -= OnMouseDown;
+                        element.PreviewMouseDown -= OnMouseDown;
                         element.MouseMove -= OnMouseMove;
-                        element.MouseUp -= OnMouseUp;
+                        element.PreviewMouseUp -= OnMouseUp;
                         element.IsManipulationEnabled = false;
                     }
                     else
                     {
                         element.MouseWheel += OnMouseWheel;
-                        element.MouseDown += OnMouseDown;
+                        element.PreviewMouseDown += OnMouseDown;
                         element.MouseMove += OnMouseMove;
-                        element.MouseUp += OnMouseUp;
+                        element.PreviewMouseUp += OnMouseUp;
                         element.IsManipulationEnabled = true;
                     }
                     //}
                 })));
 
-        public static double GetMaximumScale(DependencyObject obj)
+        public static double GetMaximumScale(UIElement obj)
         {
             return (double)obj.GetValue(MaximumScaleProperty);
         }
-        public static void SetMaximumScale(DependencyObject obj, double value)
+        public static void SetMaximumScale(UIElement obj, double value)
         {
             obj.SetValue(MaximumScaleProperty, value);
         }
@@ -70,11 +71,11 @@ namespace System.Windows.Input
             DependencyProperty.RegisterAttached("MaximumScale", typeof(double), typeof(MultiTouchHelper), new PropertyMetadata(2.0));
 
 
-        public static double GetMinimumScale(DependencyObject obj)
+        public static double GetMinimumScale(UIElement obj)
         {
             return (double)obj.GetValue(MinimumScaleProperty);
         }
-        public static void SetMinimumScale(DependencyObject obj, double value)
+        public static void SetMinimumScale(UIElement obj, double value)
         {
             obj.SetValue(MinimumScaleProperty, value);
         }
@@ -130,7 +131,6 @@ namespace System.Windows.Input
             {
                 _recoverStoryboard[key].Stop();
                 _recoverStoryboard.Remove(key);
-                (element.RenderTransform as MatrixTransform).BeginAnimation(MatrixTransform.MatrixProperty, null);
                 element.BeginAnimation(UIElement.OpacityProperty, null);
             }
             if (!_currentScale.ContainsKey(key))
@@ -149,13 +149,14 @@ namespace System.Windows.Input
             {
                 var key = element.GetHashCode();
                 var mt = (element.RenderTransform as MatrixTransform);
+                var to = _origin.ContainsKey(key) ? _origin[key] : new Matrix();
                 var speed = 10 * 96.0 / 1000.0;//速度
-                var time = Math.Sqrt(Math.Pow(mt.Matrix.OffsetX, 2) + Math.Pow(mt.Matrix.OffsetY, 2)) / speed;
+                var time = Math.Sqrt(Math.Pow(mt.Matrix.OffsetX - to.OffsetX, 2) + Math.Pow(mt.Matrix.OffsetY - to.OffsetY, 2)) / speed;
                 var animation = new MatrixAnimation()
                 {
                     From = mt.Matrix,
-                    To = new Matrix(),
-                    FillBehavior = FillBehavior.Stop,
+                    To = to,
+                    FillBehavior = FillBehavior.HoldEnd,
                     Duration = new Duration(TimeSpan.FromMilliseconds(time)),
                     EasingFunction = new BackEase() { EasingMode = EasingMode.EaseInOut }
                 };
@@ -164,11 +165,11 @@ namespace System.Windows.Input
 
                 var booleanAnimation = new BooleanAnimationUsingKeyFrames() { FillBehavior = FillBehavior.Stop };
                 booleanAnimation.KeyFrames.Add(new DiscreteBooleanKeyFrame(false, TimeSpan.Zero));
-                booleanAnimation.KeyFrames.Add(new DiscreteBooleanKeyFrame(true, TimeSpan.FromMilliseconds(time)));
+                booleanAnimation.KeyFrames.Add(new DiscreteBooleanKeyFrame(true, animation.Duration.TimeSpan));
                 Storyboard.SetTarget(booleanAnimation, element);
                 Storyboard.SetTargetProperty(booleanAnimation, new PropertyPath(UIElement.IsHitTestVisibleProperty));
 
-                var opacityAnimation = new DoubleAnimation(0.7, 1, TimeSpan.FromMilliseconds(time), FillBehavior.Stop);
+                var opacityAnimation = new DoubleAnimation(0.7, 1, animation.Duration, FillBehavior.Stop);
                 Storyboard.SetTarget(opacityAnimation, element);
                 Storyboard.SetTargetProperty(opacityAnimation, new PropertyPath(UIElement.OpacityProperty));
 
@@ -178,8 +179,6 @@ namespace System.Windows.Input
                 s.Children.Add(opacityAnimation);
                 s.Completed += (ss, ee) =>
                 {
-                    mt.BeginAnimation(MatrixTransform.MatrixProperty, null);
-                    mt.Matrix = new Matrix();
                     _currentScale[key] = 1.0;
                     _recoverStoryboard.Remove(key);
                 };
@@ -189,52 +188,64 @@ namespace System.Windows.Input
             }
         }
 
+        private static void SetMatrixTransform(ref Matrix mt, Transform transform, Point? center = null)
+        {
+            switch (transform)
+            {
+                case ScaleTransform scale:
+                    if (center.HasValue)
+                        mt.ScaleAt(scale.ScaleX, scale.ScaleY, center.Value.X, center.Value.Y);
+                    else
+                        mt.Scale(scale.ScaleX, scale.ScaleY);
+                    break;
+                case TranslateTransform translate:
+                    mt.Translate(translate.X, translate.Y);
+                    break;
+                case RotateTransform rotate:
+                    if (center.HasValue)
+                        mt.RotateAt(rotate.Angle, center.Value.X, center.Value.Y);
+                    else
+                        mt.Rotate(rotate.Angle);
+                    break;
+                case TransformGroup group:
+                    foreach (var item in group.Children)
+                    {
+                        SetMatrixTransform(ref mt, item, center);
+                    }
+                    break;
+            }
+        }
+
         private static void SetMatrixTransform(FrameworkElement element)
         {
             if (element.RenderTransform == Transform.Identity)
             {
-                element.RenderTransform = new MatrixTransform();
+                element.RenderTransform = new MatrixTransform(_origin.ContainsKey(element.GetHashCode())
+                                                                                                        ? _origin[element.GetHashCode()]
+                                                                                                        : new Matrix());
             }
-            else if (!(element.RenderTransform is MatrixTransform))
+            else if (element.RenderTransform is MatrixTransform)
             {
-                ScaleTransform scaleTransform = null;
-                TranslateTransform translateTransform = null;
-                RotateTransform rotateTransform = null;
+                try
+                {
+                    var mt = (element.RenderTransform as MatrixTransform);
+                    var current = mt.Matrix;
+                    mt.BeginAnimation(MatrixTransform.MatrixProperty, null);
+                    mt.Matrix = current;
+                }
+                catch
+                {
+                    element.RenderTransform = new MatrixTransform(_origin.ContainsKey(element.GetHashCode())
+                                                                                                        ? _origin[element.GetHashCode()]
+                                                                                                        : new Matrix());
+                }
+            }
+            else
+            {
                 var mt = new Matrix();
-
-                if (element.RenderTransform is TransformGroup group)
-                {
-                    scaleTransform = (ScaleTransform)group.Children.FirstOrDefault(f => f is ScaleTransform);
-                    translateTransform = (TranslateTransform)group.Children.FirstOrDefault(f => f is TranslateTransform);
-                    rotateTransform = (RotateTransform)group.Children.FirstOrDefault(f => f is RotateTransform);
-                }
-                else if (element.RenderTransform is ScaleTransform)
-                {
-                    scaleTransform = element.RenderTransform as ScaleTransform;
-                }
-                else if (element.RenderTransform is TranslateTransform)
-                {
-                    translateTransform = element.RenderTransform as TranslateTransform;
-                }
-                else if (element.RenderTransform is RotateTransform)
-                {
-                    rotateTransform = element.RenderTransform as RotateTransform;
-                }
-
-                if (scaleTransform != null)
-                {
-                    mt.ScaleAt(scaleTransform.ScaleX, scaleTransform.ScaleY, element.RenderSize.Width / 2, element.RenderSize.Height / 2);
-                }
-                if (translateTransform != null)
-                {
-                    mt.Translate(translateTransform.X, translateTransform.Y);
-                }
-                if (rotateTransform != null)
-                {
-                    mt.RotateAt(rotateTransform.Angle, element.RenderSize.Width / 2, element.RenderSize.Height / 2);
-                }
-
+                SetMatrixTransform(ref mt, element.RenderTransform);
                 element.RenderTransform = new MatrixTransform(mt);
+                _origin[element.GetHashCode()] = mt;
             }
         }
 
@@ -400,30 +411,42 @@ namespace System.Windows.Input
         {
             var element = sender as FrameworkElement;
             var mode = GetManipulationMode(element);
-            if ((mode & ManipulationModes.Scale) == ManipulationModes.Scale)
+            var key = element.GetHashCode();
+            SetMatrixTransform(element);
+            var matrix = (element.RenderTransform as MatrixTransform).Matrix;
+            var center = new Point(element.ActualWidth / 2.0, element.ActualHeight / 2.0);
+            center = matrix.Transform(center);
+            if (e.MiddleButton == MouseButtonState.Pressed)
             {
-                var key = element.GetHashCode();
-                SetMatrixTransform(element);
-                var matrix = (element.RenderTransform as MatrixTransform).Matrix;
-                var center = new Point(element.ActualWidth / 2.0, element.ActualHeight / 2.0);
-                center = matrix.Transform(center);
-                var scale = e.Delta / 100.0;
-                scale = scale > 0 ? scale : Math.Abs(2 + scale);
-                var currentScale = _currentScale.ContainsKey(key) ? _currentScale[key] : 1.0;
-                var maximumScale = GetMaximumScale(element);
-                var minimumScale = GetMinimumScale(element);
-                if (scale * currentScale > maximumScale)
+                if ((mode & ManipulationModes.Rotate) == ManipulationModes.Rotate)
                 {
-                    scale = maximumScale / currentScale;
+                    matrix.RotateAt(e.Delta / 10, center.X, center.Y);
+                    (element.RenderTransform as MatrixTransform).Matrix = matrix;
                 }
-                else if (scale * currentScale < minimumScale)
-                {
-                    scale = minimumScale / currentScale;
-                }
-                matrix.ScaleAt(scale, scale, center.X, center.Y);
-                _currentScale[key] = scale * currentScale;
-                (element.RenderTransform as MatrixTransform).Matrix = matrix;
             }
+            else
+            {
+                if ((mode & ManipulationModes.Scale) == ManipulationModes.Scale)
+                {
+                    var scale = e.Delta / 100.0;
+                    scale = scale > 0 ? scale : Math.Abs(2 + scale);
+                    var currentScale = _currentScale.ContainsKey(key) ? _currentScale[key] : 1.0;
+                    var maximumScale = GetMaximumScale(element);
+                    var minimumScale = GetMinimumScale(element);
+                    if (scale * currentScale > maximumScale)
+                    {
+                        scale = maximumScale / currentScale;
+                    }
+                    else if (scale * currentScale < minimumScale)
+                    {
+                        scale = minimumScale / currentScale;
+                    }
+                    matrix.ScaleAt(scale, scale, center.X, center.Y);
+                    _currentScale[key] = scale * currentScale;
+                    (element.RenderTransform as MatrixTransform).Matrix = matrix;
+                }
+            }
+
         }
 
         private static Point _startLocation;
@@ -465,8 +488,8 @@ namespace System.Windows.Input
         private static void OnMouseUp(object sender, MouseButtonEventArgs e)
         {
             var element = sender as FrameworkElement;
-            element.MouseLeave -= OnMouseLeave;
             element.ReleaseMouseCapture();
+            element.MouseLeave -= OnMouseLeave;
             element.Opacity = 1.0;
             CreateRecoverStoryboard(element);
         }
@@ -474,8 +497,8 @@ namespace System.Windows.Input
         private static void OnMouseLeave(object sender, MouseEventArgs e)
         {
             var element = sender as FrameworkElement;
-            element.MouseLeave -= OnMouseLeave;
             element.ReleaseMouseCapture();
+            element.MouseLeave -= OnMouseLeave;
             element.Opacity = 1.0;
             CreateRecoverStoryboard(element);
         }

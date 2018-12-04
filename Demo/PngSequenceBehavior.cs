@@ -51,7 +51,6 @@ namespace System.Windows.Media.Animation
         private static void OnUnloaded(object sender, RoutedEventArgs e)
         {
             var animation = GetSequenceFrameAnimation(sender as Image);
-            animation.Stop();
             animation.Dispose();
         }
 
@@ -248,23 +247,23 @@ namespace System.Windows.Media.Animation
 
         public void Pause()
         {
-            if (storyboard == null)
-                throw new Exception("Storyboard未初始化或已经释放！");
-            storyboard.Pause();
+            //if (storyboard == null)
+            //    throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard?.Pause();
         }
 
         public void Resume()
         {
-            if (storyboard == null)
-                throw new Exception("Storyboard未初始化或已经释放！");
-            storyboard.Resume();
+            //if (storyboard == null)
+            //    throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard?.Resume();
         }
 
         public void Stop()
         {
-            if (storyboard == null)
-                throw new Exception("Storyboard未初始化或已经释放！");
-            storyboard.Stop();
+            //if (storyboard == null)
+            //    throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard?.Stop();
         }
 
         public void Dispose()
