@@ -76,7 +76,7 @@
     <Compile Include="Hotkey\HotkeyManagerBase.cs" />
     <Compile Include="Hotkey\NativeMethods.cs" />
     <Compile Include="Hotkey\WeakReferenceCollection.cs" />
-    <Compile Include="LinearMatrixAnimation.cs" />
+    <Compile Include="MatrixAnimation.cs" />
     <Compile Include="MultiTouchHelper.cs" />
     <Compile Include="NetworkExtension.cs" />
     <Compile Include="Page1.xaml.cs">

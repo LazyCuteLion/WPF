@@ -33,6 +33,20 @@ namespace Demo
 
         private void Page_Loaded(object sender, RoutedEventArgs e)
         {
+            //var animation = new DoubleAnimation()
+            //{
+            //    To = 2000,
+            //    //By = 50.0,
+            //    //BeginTime = TimeSpan.FromSeconds(3)
+            //    //Duration = TimeSpan.FromMilliseconds(3000)
+            //};
+            //animation.Completed += (ss, ee) =>
+            //{
+            //    Console.WriteLine(DateTime.Now.ToString("HH:mm.ss.fff"));
+            //};
+            //rect.BeginAnimation(Canvas.LeftProperty, animation);
+            //Console.WriteLine(DateTime.Now.ToString("HH:mm.ss.fff"));
+
             //var shellFile = ShellFile.FromFilePath(@"D:\Videos\big_buck_bunny_1080p_h264.mov");//D:\Videos\big_buck_bunny_1080p_h264_udp.txt
             //var p = shellFile.Properties;
             //var p_video = new ShellProperties.PropertySystemVideo();

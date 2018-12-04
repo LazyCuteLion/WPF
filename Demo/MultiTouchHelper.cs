@@ -32,9 +32,31 @@ namespace System.Windows.Input
             obj.SetValue(ManipulationModeProperty, value);
         }
         public static readonly DependencyProperty ManipulationModeProperty =
-            DependencyProperty.RegisterAttached("ManipulationMode", typeof(ManipulationModes), typeof(MultiTouchHelper), new PropertyMetadata(ManipulationModes.None));
-
-
+            DependencyProperty.RegisterAttached("ManipulationMode", typeof(ManipulationModes), typeof(MultiTouchHelper),
+                new PropertyMetadata(ManipulationModes.None, new PropertyChangedCallback((s, e) =>
+                {
+                    //如果系统不支持触摸，则添加鼠标事件
+                    //if (!SystemParameters.IsTabletPC)
+                    //{
+                    var element = s as UIElement;
+                    if (e.NewValue.Equals(ManipulationModes.None))
+                    {
+                        element.MouseWheel -= OnMouseWheel;
+                        element.MouseDown -= OnMouseDown;
+                        element.MouseMove -= OnMouseMove;
+                        element.MouseUp -= OnMouseUp;
+                        element.IsManipulationEnabled = false;
+                    }
+                    else
+                    {
+                        element.MouseWheel += OnMouseWheel;
+                        element.MouseDown += OnMouseDown;
+                        element.MouseMove += OnMouseMove;
+                        element.MouseUp += OnMouseUp;
+                        element.IsManipulationEnabled = true;
+                    }
+                    //}
+                })));
 
         public static double GetMaximumScale(DependencyObject obj)
         {
@@ -46,7 +68,6 @@ namespace System.Windows.Input
         }
         public static readonly DependencyProperty MaximumScaleProperty =
             DependencyProperty.RegisterAttached("MaximumScale", typeof(double), typeof(MultiTouchHelper), new PropertyMetadata(2.0));
-
 
 
         public static double GetMinimumScale(DependencyObject obj)
@@ -92,14 +113,6 @@ namespace System.Windows.Input
                         contenter.ManipulationDelta += OnManipulationDelta;
                         contenter.ManipulationInertiaStarting += OnManipulationInertiaStarting;
                         contenter.ManipulationCompleted += OnManipulationCompleted;
-                        //如果系统不支持触摸，则添加鼠标事件
-                        if (!SystemParameters.IsTabletPC)
-                        {
-                            contenter.MouseWheel += OnMouseWheel;
-                            contenter.PreviewMouseDown += OnMouseDown;//Preview
-                            contenter.PreviewMouseMove += OnMouseMove;
-                            contenter.PreviewMouseUp += OnMouseUp;
-                        }
                     }
                     else
                     {
@@ -107,13 +120,6 @@ namespace System.Windows.Input
                         contenter.ManipulationDelta -= OnManipulationDelta;
                         contenter.ManipulationInertiaStarting -= OnManipulationInertiaStarting;
                         contenter.ManipulationCompleted -= OnManipulationCompleted;
-                        if (!SystemParameters.IsTabletPC)
-                        {
-                            contenter.MouseWheel -= OnMouseWheel;
-                            contenter.PreviewMouseDown -= OnMouseDown;
-                            contenter.PreviewMouseMove -= OnMouseMove;
-                            contenter.PreviewMouseUp -= OnMouseUp;
-                        }
                     }
                 })));
 
@@ -123,8 +129,9 @@ namespace System.Windows.Input
             if (_recoverStoryboard.ContainsKey(key))
             {
                 _recoverStoryboard[key].Stop();
-                //(element.RenderTransform as MatrixTransform).BeginAnimation(MatrixTransform.MatrixProperty, null);
                 _recoverStoryboard.Remove(key);
+                (element.RenderTransform as MatrixTransform).BeginAnimation(MatrixTransform.MatrixProperty, null);
+                element.BeginAnimation(UIElement.OpacityProperty, null);
             }
             if (!_currentScale.ContainsKey(key))
             {
@@ -144,7 +151,6 @@ namespace System.Windows.Input
                 var mt = (element.RenderTransform as MatrixTransform);
                 var speed = 10 * 96.0 / 1000.0;//速度
                 var time = Math.Sqrt(Math.Pow(mt.Matrix.OffsetX, 2) + Math.Pow(mt.Matrix.OffsetY, 2)) / speed;
-                //time = 3000;
                 var animation = new MatrixAnimation()
                 {
                     From = mt.Matrix,
@@ -154,8 +160,7 @@ namespace System.Windows.Input
                     EasingFunction = new BackEase() { EasingMode = EasingMode.EaseInOut }
                 };
                 Storyboard.SetTarget(animation, element);
-                Storyboard.SetTargetProperty(animation, new PropertyPath("(0).(1)",
-                    FrameworkElement.RenderTransformProperty, MatrixTransform.MatrixProperty));
+                Storyboard.SetTargetProperty(animation, new PropertyPath("(0).(1)", FrameworkElement.RenderTransformProperty, MatrixTransform.MatrixProperty));
 
                 var booleanAnimation = new BooleanAnimationUsingKeyFrames() { FillBehavior = FillBehavior.Stop };
                 booleanAnimation.KeyFrames.Add(new DiscreteBooleanKeyFrame(false, TimeSpan.Zero));
@@ -393,9 +398,7 @@ namespace System.Windows.Input
 
         private static void OnMouseWheel(object sender, MouseWheelEventArgs e)
         {
-            var element = GetManipulationItem(e.OriginalSource as FrameworkElement);
-            if (element == null)
-                return;
+            var element = sender as FrameworkElement;
             var mode = GetManipulationMode(element);
             if ((mode & ManipulationModes.Scale) == ManipulationModes.Scale)
             {
@@ -421,34 +424,29 @@ namespace System.Windows.Input
                 _currentScale[key] = scale * currentScale;
                 (element.RenderTransform as MatrixTransform).Matrix = matrix;
             }
-
         }
 
         private static Point _startLocation;
-        private static FrameworkElement _capturedElement;
 
         private static void OnMouseDown(object sender, MouseButtonEventArgs e)
         {
-            var element = GetManipulationItem(e.OriginalSource as FrameworkElement);
-            if (element == null)
-                return;
+            var element = sender as FrameworkElement;
             Initialize(element);
             _startLocation = e.GetPosition(GetManipulationContainer(element));
             element.CaptureMouse();
             element.MouseLeave += OnMouseLeave;
-            _capturedElement = element;
-
         }
 
         private static void OnMouseMove(object sender, MouseEventArgs e)
         {
-            if (e.LeftButton == MouseButtonState.Pressed && _capturedElement != null)
+            if (e.LeftButton == MouseButtonState.Pressed)
             {
-                var point = e.GetPosition(GetManipulationContainer(_capturedElement));
+                var element = sender as FrameworkElement;
+                var point = e.GetPosition(GetManipulationContainer(element));
                 var change = point - _startLocation;
                 _startLocation = point;
-                var matrix = (_capturedElement.RenderTransform as MatrixTransform).Matrix;
-                var mode = GetManipulationMode(_capturedElement);
+                var matrix = (element.RenderTransform as MatrixTransform).Matrix;
+                var mode = GetManipulationMode(element);
                 var move = new Point(0, 0);
                 if ((mode & ManipulationModes.TranslateX) == ManipulationModes.TranslateX)
                 {
@@ -459,32 +457,27 @@ namespace System.Windows.Input
                     move.Y = change.Y;
                 }
                 matrix.Translate(move.X, move.Y);
-                (_capturedElement.RenderTransform as MatrixTransform).Matrix = matrix;
+                (element.RenderTransform as MatrixTransform).Matrix = matrix;
                 e.Handled = true;
             }
-
         }
 
         private static void OnMouseUp(object sender, MouseButtonEventArgs e)
         {
-            if (_capturedElement == null)
-                return;
-            _capturedElement.MouseLeave -= OnMouseLeave;
-            _capturedElement.ReleaseMouseCapture();
-            _capturedElement.Opacity = 1.0;
-            CreateRecoverStoryboard(_capturedElement);
-            _capturedElement = null;
+            var element = sender as FrameworkElement;
+            element.MouseLeave -= OnMouseLeave;
+            element.ReleaseMouseCapture();
+            element.Opacity = 1.0;
+            CreateRecoverStoryboard(element);
         }
 
         private static void OnMouseLeave(object sender, MouseEventArgs e)
         {
-            if (_capturedElement == null)
-                return;
-            _capturedElement.MouseLeave -= OnMouseLeave;
-            _capturedElement.ReleaseMouseCapture();
-            _capturedElement.Opacity = 1.0;
-            CreateRecoverStoryboard(_capturedElement);
-            _capturedElement = null;
+            var element = sender as FrameworkElement;
+            element.MouseLeave -= OnMouseLeave;
+            element.ReleaseMouseCapture();
+            element.Opacity = 1.0;
+            CreateRecoverStoryboard(element);
         }
     }
 }
