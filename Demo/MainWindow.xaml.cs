@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -12,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace Demo
 {
@@ -23,6 +26,41 @@ namespace Demo
         public MainWindow()
         {
             InitializeComponent();
+
+            CompositionTarget.Rendering += CompositionTarget_Rendering;
+            stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            Test();
+        }
+
+
+         void Test()
+        {
+            var tcs = new CancellationTokenSource(100);
+            for (int i = 0; i < 10000; i++)
+            {
+                try
+                {
+                     Task.Delay(-1, CancellationToken.None);
+                }
+                catch { }
+            }
+        }
+
+
+        int fpsCount = 0;
+        Stopwatch stopwatch;
+
+        private void CompositionTarget_Rendering(object sender, EventArgs e)
+        {
+            fpsCount++;
+            if (stopwatch.ElapsedMilliseconds >= 1000)
+            {
+                tbFPS.Text = fpsCount.ToString();
+                fpsCount = 0;
+                stopwatch.Restart();
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -41,8 +79,10 @@ namespace Demo
                     frame.Navigate(new Uri($"page{index}.xaml", UriKind.Relative));
                     break;
             }
-          
+
             base.OnKeyDown(e);
         }
+
+
     }
 }

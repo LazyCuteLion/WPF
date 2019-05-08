@@ -33,6 +33,27 @@ namespace Demo
                 case Key.Delete:
                 case Key.Back:
                     canvas.Strokes.Clear();
+                    e.Handled = true;
+                    break;
+                case Key.Enter:
+                    var count = 0;
+                    foreach (var s in canvas.Strokes)
+                    {
+                        count += s.StylusPoints.Count;
+                    }
+                    Console.WriteLine(count);
+                    break;
+                case Key.F1:
+                    canvas.DefaultDrawingAttributes.Color = Colors.Black;
+                    break;
+                case Key.F2:
+                    canvas.DefaultDrawingAttributes.Color = Colors.Red;
+                    break;
+                case Key.F3:
+                    canvas.DefaultDrawingAttributes.Color = Colors.Green;
+                    break;
+                case Key.F4:
+                    canvas.DefaultDrawingAttributes.Color = Colors.Blue;
                     break;
             }
         }

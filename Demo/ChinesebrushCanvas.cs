@@ -44,6 +44,7 @@ namespace System.Windows.Controls
             e.PreviousDrawingAttributes.AttributeChanged -= DefaultDrawingAttributes_AttributeChanged;
         }
 
+
         protected override void OnStrokeCollected(InkCanvasStrokeCollectedEventArgs e)
         {
             this.Strokes.Remove(e.Stroke);
@@ -128,6 +129,17 @@ namespace System.Windows.Controls
 
         protected override void DrawCore(DrawingContext drawingContext, DrawingAttributes drawingAttributes)
         {
+            var rtb = this.RenderStylusPoints(out Rect rect);
+            if (!rect.IsEmpty)
+            {
+                drawingContext.DrawImage(rtb, rect);
+                drawingContext.Close();
+            }
+            rtb = null;
+        }
+
+        private RenderTargetBitmap RenderStylusPoints(out Rect rect)
+        {
             #region 把所有墨迹转化成图片再画，不然会造成CPU占用过高，导致卡顿，似乎是DrawingContext的bug？
             var dv = new DrawingVisual();
             using (var context = dv.RenderOpen())
@@ -172,23 +184,22 @@ namespace System.Windows.Controls
                 }
                 context.Close();
             }
-            var rect = dv.DescendantBounds;
-            if (Rect.Empty == rect)
-                return;
+            rect = dv.DescendantBounds;
+            if (rect.IsEmpty)
+            {
+                return null;
+            }
+
             dv.Offset = new Vector(0 - rect.X, 0 - rect.Y);
-            var rtb = new RenderTargetBitmap((int)Math.Round(rect.Width, MidpointRounding.AwayFromZero), 
-                                                                    (int)Math.Round(rect.Height, MidpointRounding.AwayFromZero), 
+            var rtb = new RenderTargetBitmap((int)Math.Round(rect.Width, MidpointRounding.AwayFromZero),
+                                                                    (int)Math.Round(rect.Height, MidpointRounding.AwayFromZero),
                                                                     96d, 96d, PixelFormats.Pbgra32);
             rtb.Render(dv);
             rtb.Freeze();
-            #endregion
-            drawingContext.DrawImage(rtb, rect);
-            drawingContext.Close();
             dv = null;
-            rtb = null;
-             
+            return rtb;
+            #endregion
         }
-
     }
 
 

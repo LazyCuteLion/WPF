@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -10,77 +11,41 @@ namespace System.Net
 {
     public static class HttpExtension
     {
-        private static ConcurrentDictionary<int, CancellationTokenSource> task_tokens = new ConcurrentDictionary<int, CancellationTokenSource>();
-        private static ConcurrentDictionary<int, Delegate> received_actions = new ConcurrentDictionary<int, Delegate>();
 
         public static void Start(this HttpListener listener, int port)
         {
-            //if(listener.IsListening)
             listener.Prefixes.Add($"http://+:{port}/");
             listener.Start();
         }
 
-        public static void WhenReceived(this HttpListener listener, Action<HttpListenerContext> action)
+        public static Task<HttpListener> WheneverAcceptContext(this HttpListener listener, Action<HttpListenerContext> action, CancellationToken token)
         {
             if (action == null)
                 throw new ArgumentNullException();
 
-            var key = listener.GetHashCode();
-            if (!received_actions.ContainsKey(key))
-            {
-                received_actions[key] = action;
-            }
-            else
-            {
-                var temp = Delegate.Combine(received_actions[key], action);
-                received_actions[key] = temp;
-            }
+            if (!listener.IsListening)
+                throw new Exception("HttpListener 未启动！");
 
-            if (task_tokens.ContainsKey(key))
-                return;
-            var context = SynchronizationContext.Current;
-            var cts = new CancellationTokenSource();
-            Task.Run(async () =>
+            return Task.Run(() =>
             {
-                while (true)
+                while (listener.IsListening)
                 {
-                    if (cts.IsCancellationRequested)
-                        break;
-                    var httpContext = await listener.GetContextAsync();
-                    if (received_actions.ContainsKey(key))
+                    try
                     {
-                        context.Post(_ =>
-                        {
-                            received_actions[key].DynamicInvoke(httpContext);
-                        }, null);
+                        var contextTask = listener.GetContextAsync();
+                        contextTask.Wait(token);
+                        var context = contextTask.Result;
+                        try { action(context); } catch { }
+                        if (token.IsCancellationRequested)
+                            break;
+                    }
+                    catch
+                    {
+                        break;
                     }
                 }
-            }, cts.Token).ConfigureAwait(false);
-            task_tokens[key] = cts;
-        }
-
-        public static void RemoveAction(this HttpListener listener, Delegate action)
-        {
-            var key = listener.GetHashCode();
-            if (received_actions.ContainsKey(key))
-            {
-                var temp = Delegate.RemoveAll(received_actions[key], action);
-                received_actions[key] = temp;
-            }
-        }
-
-        public static void ClearActions(this HttpListener listener)
-        {
-            var key = listener.GetHashCode();
-
-            if (received_actions.TryRemove(key, out Delegate r))
-                r = null;
-
-            if (task_tokens.TryRemove(key, out CancellationTokenSource t))
-            {
-                t.Cancel();
-                t.Dispose();
-            }
+                return listener;
+            }, token);
         }
     }
 }
@@ -94,12 +59,12 @@ namespace System.Net.WebSockets
             await client.ConnectAsync(new Uri(uri), CancellationToken.None);
         }
 
-        public static async Task CloseAsync(this WebSocket client, WebSocketCloseStatus state)
+        public static async Task CloseAsync<T>(this T client) where T : WebSocket
         {
-            await client.CloseAsync(state, "", CancellationToken.None);
+            await client.CloseAsync(WebSocketCloseStatus.Empty, "", CancellationToken.None);
         }
 
-        public static async Task SendAsync(this WebSocket client, string msg, Encoding encoding = null)
+        public static async Task SendAsync<T>(this T client, string msg, Encoding encoding = null) where T : WebSocket
         {
             if (client == null)
                 throw new ArgumentNullException();
@@ -109,7 +74,7 @@ namespace System.Net.WebSockets
             await client.SendAsync(new ArraySegment<byte>(data), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        public static async Task SendAsync(this WebSocket client, byte[] data, int index = 0, int length = -1)
+        public static async Task SendAsync<T>(this T client, byte[] data, int index = 0, int length = -1) where T : WebSocket
         {
             if (client == null)
                 throw new ArgumentNullException();
@@ -122,208 +87,56 @@ namespace System.Net.WebSockets
             await client.SendAsync(new ArraySegment<byte>(temp), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
-        public static async Task<byte[]> ReceiveAsync(this WebSocket socket)
+        /// <summary>
+        /// 循环接收数据；
+        /// ”Close事件“请使用该Task.ContinueWith
+        /// </summary>
+        /// <param name="socket"></param>
+        /// <param name="received"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static Task<WebSocket> WheneverReceived(this WebSocket socket, Action<WebSocket, byte[]> received, CancellationToken token)
         {
-            var data = new byte[65535];
-            var r = await socket.ReceiveAsync(new ArraySegment<byte>(data), CancellationToken.None);
-            if (r.CloseStatus.HasValue)
-                throw new WebException("", WebExceptionStatus.ConnectionClosed);
-            if (r.Count > 0)
+            if (received == null)
+                throw new ArgumentNullException();
+            return Task.Run(() =>
             {
-                var temp = new byte[r.Count];
-                Array.Copy(data, temp, r.Count);
-                Array.Clear(data, 0, data.Length);
-                return temp;
-            }
-            else
-            {
-                throw new Exception("未知错误");
-            }
-        }
-
-        private static ConcurrentDictionary<int, CancellationTokenSource> task_tokens = new ConcurrentDictionary<int, CancellationTokenSource>();
-        private static ConcurrentDictionary<int, Delegate> received_actions = new ConcurrentDictionary<int, Delegate>();
-        private static ConcurrentDictionary<int, Delegate> closed_actions = new ConcurrentDictionary<int, Delegate>();
-
-        private static void Run(WebSocket socket)
-        {
-            var key = socket.GetHashCode();
-
-            if (task_tokens.ContainsKey(key))
-                return;
-
-            var cts = new CancellationTokenSource();
-            var context = SynchronizationContext.Current;
-            Task.Run(async () =>
-            {
+                var data = new byte[65535];
                 while (true)
                 {
                     try
                     {
-                        if (cts.IsCancellationRequested)
-                        {
-                            //if (closed_actions.ContainsKey(key))
-                            //{
-                            //    var action = closed_actions[key];
-                            //    context.Post(_ =>
-                            //    {
-                            //        action.DynamicInvoke(WebSocketCloseStatus.InternalServerError);
-                            //    }, null);
-                            //}
+                        var t = socket.ReceiveAsync(new ArraySegment<byte>(data), CancellationToken.None);
+                        t.Wait(token);
+                        var r = t.Result;
+                        if (r.CloseStatus.HasValue)
                             break;
-                        }
-
-                        var data = await socket.ReceiveAsync();
-
-                        if (received_actions.ContainsKey(key))
+                        if (r.Count > 0)
                         {
-                            var action = received_actions[key];
-                            context.Post(_ =>
-                            {
-                                action.DynamicInvoke(data);
-                            }, null);
+                            var temp = new byte[r.Count];
+                            Array.Copy(data, temp, r.Count);
+                            Array.Clear(data, 0, data.Length);
+                            try { received(socket, temp); } catch { }
                         }
-
-                        if (socket.CloseStatus.HasValue && closed_actions.ContainsKey(key))
-                        {
-                            var action = closed_actions[key];
-                            context.Post(_ =>
-                            {
-                                action.DynamicInvoke(socket.CloseStatus);
-                            }, null);
-                            ClearActions(socket);
+                        if (token.IsCancellationRequested)
                             break;
-                        }
                     }
                     catch
                     {
-                        if (closed_actions.ContainsKey(key))
-                        {
-                            var state = socket.CloseStatus.HasValue ? socket.CloseStatus.Value : WebSocketCloseStatus.Empty;
-                            var action = closed_actions[key];
-                            context.Post(_ =>
-                            {
-                                action.DynamicInvoke(state);
-                            }, null);
-                        }
-                        ClearActions(socket);
                         break;
                     }
                 }
-            }, cts.Token).ConfigureAwait(false);
-            task_tokens[key] = cts;
+                Debug.WriteLine("WebSocket[{0}] Received Task is completed", socket);
+                return socket;
+            }, token);
         }
 
-        public static void When(this WebSocket socket, Action<byte[]> received, Action<WebSocketCloseStatus> closed)
-        {
-            var key = socket.GetHashCode();
-            if (received != null)
-            {
-                if (received_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.Combine(received_actions[key], received);
-                    received_actions[key] = temp;
-                }
-                else
-                {
-                    received_actions[key] = received;
-                }
-            }
-            if (closed != null)
-            {
-                if (closed_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.Combine(closed_actions[key], closed);
-                    closed_actions[key] = temp;
-                }
-                else
-                {
-                    closed_actions[key] = closed;
-                }
-            }
-            Run(socket);
-        }
-
-        public static void WhenReceived(this WebSocket socket, Action<byte[]> action)
-        {
-            if (action == null)
-                throw new ArgumentNullException();
-            When(socket, action, null);
-        }
-
-        public static void WhenClosed(this WebSocket socket, Action<WebSocketCloseStatus> action)
-        {
-            if (action == null)
-                throw new ArgumentNullException();
-            When(socket, null, action);
-        }
-
-        public static void RemoveAction(this WebSocket socket, Delegate action)
-        {
-            try
-            {
-                var key = socket.GetHashCode();
-                if (action is Action<byte[]>)
-                {
-                    if (received_actions.ContainsKey(key))
-                    {
-                        var temp = Delegate.RemoveAll(received_actions[key], action);
-                        received_actions[key] = temp;
-                    }
-                }
-                else
-                {
-                    if (closed_actions.ContainsKey(key))
-                    {
-                        var temp = Delegate.RemoveAll(closed_actions[key], action);
-                        closed_actions[key] = temp;
-                    }
-                }
-            }
-            catch { }
-
-        }
-
-        public static void ClearActions(this WebSocket socket)
-        {
-            try
-            {
-                var key = socket.GetHashCode();
-                if (received_actions.TryRemove(key, out Delegate a))
-                {
-                    a = null;
-                }
-                if (closed_actions.TryRemove(key, out a))
-                {
-                    a = null;
-                }
-
-                if (task_tokens.TryRemove(key, out CancellationTokenSource t))
-                {
-                    t.Cancel();
-                    t.Dispose();
-                }
-            }
-            catch { }
-        }
-    }
-
-    public class WebSocketResult
-    {
-        public WebSocket WebSocket { get; private set; }
-
-        public IPEndPoint RemoteEndPoint { get; private set; }
-
-        public WebSocketResult(WebSocket ws, IPEndPoint p)
-        {
-            this.WebSocket = ws;
-            this.RemoteEndPoint = p;
-        }
     }
 
     public class WebSocketServer
     {
         HttpListener listener;
+        CancellationTokenSource tokenSource;
 
         public bool Started { get { return listener.IsListening; } }
 
@@ -365,16 +178,45 @@ namespace System.Net.WebSockets
 
         public void Close()
         {
+            this.Stop();
             listener.Close();
+            if (tokenSource != null)
+            {
+                if (!tokenSource.IsCancellationRequested)
+                    tokenSource.Cancel();
+                tokenSource.Dispose();
+            }
         }
 
-        public async Task<WebSocketResult> AcceptWebSocketAsync()
+        /// <summary>
+        /// 每当客户端连接时
+        /// </summary>
+        /// <param name="connected"></param>
+        /// <returns></returns>
+        public Task WheneverWebSocketConnected(Action<WebSocket, IPEndPoint> connected)
         {
-            var context = await listener.GetContextAsync();
-            var wsContext = await context.AcceptWebSocketAsync(null);
-            return new WebSocketResult(wsContext.WebSocket, context.Request.RemoteEndPoint);
-        }
+            if (connected == null)
+                throw new ArgumentNullException();
+            if (tokenSource != null)
+            {
+                if (!tokenSource.IsCancellationRequested)
+                    tokenSource.Cancel();
+                tokenSource.Dispose();
+            }
 
+            tokenSource = new CancellationTokenSource();
+
+            return listener.WheneverAcceptContext(async (context) =>
+            {
+                if (context.Request.IsWebSocketRequest)
+                {
+                    var ws = await context.AcceptWebSocketAsync(null);
+                    var rep = context.Request.RemoteEndPoint;
+                    try { connected(ws.WebSocket, rep); } catch { }
+                }
+            }, tokenSource.Token);
+
+        }
     }
 }
 
@@ -382,21 +224,8 @@ namespace System.Net.Sockets
 {
     public static class SocketExtension
     {
-        private static ConcurrentDictionary<int, CancellationTokenSource> task_tokens = new ConcurrentDictionary<int, CancellationTokenSource>();
-
         #region UdpClient
 
-        private static ConcurrentDictionary<int, Delegate> udp_received_actions = new ConcurrentDictionary<int, Delegate>();
-
-        /// <summary>
-        /// 异步发送字符串
-        /// </summary>
-        /// <param name="client"></param>
-        /// <param name="msg"></param>
-        /// <param name="ip"></param>
-        /// <param name="port"></param>
-        /// <param name="encoding">默认UTF-8</param>
-        /// <returns></returns>
         public static async Task<int> SendAsync(this UdpClient client, string msg, string ip, int port, Encoding encoding = null)
         {
             if (encoding == null)
@@ -413,96 +242,62 @@ namespace System.Net.Sockets
             return client.Send(data, data.Length, ip, port);
         }
 
-        public static void WhenReceived(this UdpClient client, Action<UdpReceiveResult> action)
+        /// <summary>
+        /// 循环接收数据
+        /// </summary>
+        /// <param name="udp"></param>
+        /// <param name="received"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static Task<UdpClient> WheneverReceived(this UdpClient udp, Action<UdpReceiveResult> received, CancellationToken token)
         {
-            if (action == null)
-                throw new ArgumentNullException();
-            var key = client.GetHashCode();
-            if (udp_received_actions.ContainsKey(key))
-            {
-                var temp = Delegate.Combine(udp_received_actions[key], action);
-                udp_received_actions[key] = temp;
-            }
-            else
-            {
-                udp_received_actions[key] = action;
-            }
-
-            if (task_tokens.ContainsKey(key))
-                return;
-            var cts = new CancellationTokenSource();
-            var context = SynchronizationContext.Current;
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        if (cts.IsCancellationRequested)
-                            break;
-                        var r = await client.ReceiveAsync();
-                        if (udp_received_actions.ContainsKey(key))
-                        {
-                            var a = udp_received_actions[key];
-                            if (context == null)
-                                a.DynamicInvoke(r);
-                            else
-                                context.Post(_ =>
-                                {
-                                    a.DynamicInvoke(r);
-                                }, null);
-                        }
-                    }
-                    catch
-                    {
-                        if (task_tokens.TryRemove(key, out cts))
-                        {
-                            cts.Dispose();
-                        }
-                        break;
-                    }
-                }
-            }, cts.Token).ConfigureAwait(false);
-            task_tokens[key] = cts;
+            return Task.Run(() =>
+           {
+               var lep = udp.Client?.LocalEndPoint;
+               while (true)
+               {
+                   try
+                   {
+                       var t = udp.ReceiveAsync();
+                       t.Wait(token);
+                       try { received(t.Result); } catch { }
+                       if (token.IsCancellationRequested)
+                           break;
+                   }
+                   catch
+                   {
+                       break;
+                   }
+               }
+               Debug.WriteLine("UdpClient[{0}] Receive Task is completed", lep);
+               return udp;
+           }, token);
         }
 
-        public static void RemoveAction(this UdpClient client, Delegate action)
+        /// <summary>
+        /// 循环接收数据
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="received"></param>
+        /// <returns></returns>
+        public static Task<UdpClient> WheneverReceived(this UdpClient client, Action<UdpReceiveResult> received)
         {
-            try
-            {
-                var key = client.GetHashCode();
-
-                if (udp_received_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.RemoveAll(udp_received_actions[key], action);
-                    udp_received_actions[key] = temp;
-                }
-            }
-            catch { }
-        }
-
-        public static void ClearActions(this UdpClient client)
-        {
-            try
-            {
-                var key = client.GetHashCode();
-                if (udp_received_actions.TryRemove(key, out Delegate a))
-                {
-                    a = null;
-                }
-
-                if (task_tokens.TryRemove(key, out CancellationTokenSource t))
-                {
-                    t.Cancel();
-                    t.Dispose();
-                }
-            }
-            catch { }
+            return client.WheneverReceived(received, CancellationToken.None);
         }
 
         #endregion
 
         #region TcpClient
+
+        public static void Disconnect(this TcpClient client)
+        {
+            try
+            {
+                if (client.Connected && client.Client != null)
+                    client.Client.Disconnect(true);
+            }
+            catch { }
+        }
 
         public static void Send(this TcpClient client, string msg, Encoding encoding = null)
         {
@@ -516,19 +311,23 @@ namespace System.Net.Sockets
         {
             if (index < 0)
                 index = 0;
-            if (length < 0)
+            if (length <= 0)
                 length = data.Length - index;
+            if (length < index)
+                throw new ArgumentOutOfRangeException("index,length", "index 不能大于 length");
             var stream = client.GetStream();
             stream.Write(data, index, length);
         }
 
         public static async Task SendAsync(this TcpClient client, byte[] data, int index = 0, int length = -1)
         {
-            var stream = client.GetStream();
             if (index < 0)
                 index = 0;
-            if (length < 0)
+            if (length <= 0)
                 length = data.Length - index;
+            if (length < index)
+                throw new ArgumentOutOfRangeException("index,length", "index 不能大于 length");
+            var stream = client.GetStream();
             await stream.WriteAsync(data, index, length);
         }
 
@@ -545,272 +344,120 @@ namespace System.Net.Sockets
             return client.Client.RemoteEndPoint as IPEndPoint;
         }
 
-        private static ConcurrentDictionary<int, Delegate> tcp_received_actions = new ConcurrentDictionary<int, Delegate>();
-        private static ConcurrentDictionary<int, Delegate> tcp_closed_actions = new ConcurrentDictionary<int, Delegate>();
-        private static ConcurrentDictionary<int, Delegate> tcp_connected_actions = new ConcurrentDictionary<int, Delegate>();
-
-        public static void When(this TcpClient client, Action<byte[]> received, Action<IPEndPoint> closed)
+        /// <summary>
+        /// 循环接收数据；
+        /// ”Close事件“请使用该Task.ContinueWith
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="received"></param>
+        /// <returns></returns>
+        public static Task<TcpClient> WheneverReceived(this TcpClient client, Action<TcpClient, byte[]> received)
         {
-            var key = client.GetHashCode();
-
-            if (received != null)
-            {
-                if (tcp_received_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.Combine(tcp_received_actions[key], received);
-                    tcp_received_actions[key] = temp;
-                }
-                else
-                {
-                    tcp_received_actions[key] = received;
-                }
-            }
-
-            if (closed != null)
-            {
-                if (tcp_closed_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.Combine(tcp_closed_actions[key], closed);
-                    tcp_closed_actions[key] = temp;
-                }
-                else
-                {
-                    tcp_closed_actions[key] = closed;
-                }
-            }
-
-            if (task_tokens.ContainsKey(key))
-                return;
-
-            var cts = new CancellationTokenSource();
-            var context = SynchronizationContext.Current;
-
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        var stream = client.GetStream();
-                        if (cts.IsCancellationRequested)
-                        {
-                            break;
-                        }
-                        var data = new byte[client.ReceiveBufferSize];
-                        var length = await stream.ReadAsync(data, 0, data.Length);
-                        if (length > 0 && tcp_received_actions.ContainsKey(key))
-                        {
-                            var temp = new byte[length];
-                            Array.Copy(data, temp, length);
-                            Array.Clear(data, 0, data.Length);
-                            var a = tcp_received_actions[key];
-                            context.Post(_ =>
-                            {
-                                try { a.DynamicInvoke(temp); }
-                                catch { }
-                            }, null);
-                        }
-
-                        if (tcp_closed_actions.ContainsKey(key))
-                        {
-                            var socket = client.Client;
-                            if (socket.Poll(100, SelectMode.SelectRead) && socket.Available <= 0)
-                            {
-                                if (tcp_closed_actions.ContainsKey(key))
-                                {
-                                    var a = tcp_closed_actions[key];
-                                    context.Post(_ =>
-                                    {
-                                        a.DynamicInvoke(socket.RemoteEndPoint);
-                                    }, null);
-                                }
-                                ClearActions(client);
-                                break;
-                            }
-                        }
-                    }
-                    catch
-                    {
-                        //if (tcp_closed_actions.ContainsKey(key))
-                        //{
-                        //    IPEndPoint p = null;
-                        //    try
-                        //    {
-                        //        p = (IPEndPoint)client.Client.RemoteEndPoint;
-                        //    }
-                        //    catch { }
-                        //    var a = tcp_closed_actions[key];
-                        //    context.Post(_ =>
-                        //                                {
-                        //                                    a.DynamicInvoke(p);
-                        //                                }, null);
-                        //}
-                        ClearActions(client);
-                        break;
-                    }
-                }
-            }, cts.Token).ConfigureAwait(false);
-            task_tokens[key] = cts;
-        }
-
-        public static void WhenReceived(this TcpClient client, Action<byte[]> action)
-        {
-            if (action == null)
-                throw new ArgumentNullException();
-            if (!client.Connected)
-                throw new SocketException((int)SocketError.NotConnected);
-
-            When(client, action, null);
+            return client.WheneverReceived(received, CancellationToken.None);
         }
 
         /// <summary>
-        /// 当连接关闭时
-        /// 调用TcpClient.Close()方法不会触发
+        /// 循环接收数据；
+        /// ”Close事件“请使用该Task.ContinueWith
         /// </summary>
         /// <param name="client"></param>
-        /// <param name="closed"></param>
-        public static void WhenClosed(this TcpClient client, Action<IPEndPoint> closed)
+        /// <param name="received"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static Task<TcpClient> WheneverReceived(this TcpClient client, Action<TcpClient, byte[]> received, CancellationToken token)
         {
-            if (closed == null)
+            if (received == null)
                 throw new ArgumentNullException();
             if (!client.Connected)
                 throw new SocketException((int)SocketError.NotConnected);
 
-            When(client, null, closed);
-        }
-
-        public static void RemoveAction(this TcpClient client, Delegate action)
-        {
-            try
+            return Task.Run(() =>
             {
-                var key = client.GetHashCode();
-
-                if (action is Action<byte[]>)
+                var socket = client.Client;
+                while (client.Connected)
                 {
-                    if (tcp_received_actions.ContainsKey(key))
+                    try
                     {
-                        var temp = Delegate.RemoveAll(tcp_received_actions[key], action);
-                        tcp_received_actions[key] = temp;
+                        if (socket.Poll(100, SelectMode.SelectRead))
+                        {
+                            var data = new byte[client.ReceiveBufferSize];
+                            var length = socket.Receive(data);
+                            if (length > 0)
+                            {
+                                var temp = new byte[length];
+                                Array.Copy(data, temp, length);
+                                Array.Clear(data, 0, data.Length);
+                                try { received(client, temp); } catch { }
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        else if (socket.Poll(100, SelectMode.SelectError))
+                            break;
+                        if (token.IsCancellationRequested)
+                            break;
+                    }
+                    catch (SocketException e)
+                    {
+                        if (e.SocketErrorCode != SocketError.WouldBlock)
+                            break;
+                    }
+                    catch
+                    {
+                        break;
                     }
                 }
-                else
-                {
-                    if (tcp_closed_actions.ContainsKey(key))
-                    {
-                        var temp = Delegate.RemoveAll(tcp_closed_actions[key], action);
-                        tcp_closed_actions[key] = temp;
-                    }
-                }
-
-            }
-            catch { }
-        }
-
-        public static void ClearActions(this TcpClient client)
-        {
-            try
-            {
-                var key = client.GetHashCode();
-                Delegate a;
-                if (tcp_received_actions.TryRemove(key, out a))
-                {
-                    a = null;
-                }
-                if (tcp_closed_actions.TryRemove(key, out a))
-                {
-                    a = null;
-                }
-                CancellationTokenSource t;
-                if (task_tokens.TryRemove(key, out t))
-                {
-                    t.Cancel();
-                    t.Dispose();
-                }
-            }
-            catch { }
+                Debug.WriteLine("TcpClient[{0}] Receive Task is completed", socket.RemoteEndPoint);
+                return client;
+            }, token);
         }
 
         #endregion
 
         #region TcpListener
-
-        public static void WhenConnected(this TcpListener listener, Action<TcpClient> action)
+        /// <summary>
+        /// 每当客户端连接时
+        /// </summary>
+        /// <param name="listener"></param>
+        /// <param name="connected"></param>
+        /// <returns></returns>
+        public static Task<TcpListener> WheneverTcpClientConnected(this TcpListener listener, Action<TcpClient> connected)
         {
-            if (action == null)
+            return listener.WheneverTcpClientConnected(connected, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// 每当客户端连接时
+        /// </summary>
+        /// <param name="listener"></param>
+        /// <param name="connected"></param>
+        /// <param name="token"></param>
+        /// <returns></returns>
+        public static Task<TcpListener> WheneverTcpClientConnected(this TcpListener listener, Action<TcpClient> connected, CancellationToken token)
+        {
+            if (connected == null)
                 throw new ArgumentNullException();
-            var key = listener.GetHashCode();
-            if (tcp_connected_actions.ContainsKey(key))
-            {
-                var temp = Delegate.Combine(tcp_connected_actions[key], action);
-                tcp_connected_actions[key] = temp;
-            }
-            else
-            {
-                tcp_connected_actions[key] = action;
-            }
-            if (task_tokens.ContainsKey(key))
-                return;
-            var cts = new CancellationTokenSource();
-            var context = SynchronizationContext.Current;
-            Task.Run(async () =>
+            listener.Start();
+            return Task.Run(() =>
             {
                 while (true)
                 {
                     try
                     {
-                        if (cts.IsCancellationRequested)
+                        var t = listener.AcceptTcpClientAsync();
+                        t.Wait(token);
+                        try { connected(t.Result); } catch { }
+                        if (token.IsCancellationRequested)
                             break;
-                        var client = await listener.AcceptTcpClientAsync();
-                        if (tcp_connected_actions.ContainsKey(key))
-                        {
-                            var a = tcp_connected_actions[key];
-                            context.Post(_ =>
-                            {
-                                a.DynamicInvoke(client);
-                            }, null);
-                        }
                     }
                     catch { break; }
                 }
-            }, cts.Token).ConfigureAwait(false);
-            task_tokens[key] = cts;
+                Debug.WriteLine("TcpListener[{0}] AcceptTcpClient Task is completed", listener.LocalEndpoint);
+                return listener;
+            }, token);
         }
-
-        public static void RemoveAction(this TcpListener listener, Delegate action)
-        {
-            try
-            {
-                var key = listener.GetHashCode();
-
-                if (tcp_connected_actions.ContainsKey(key))
-                {
-                    var temp = Delegate.RemoveAll(tcp_connected_actions[key], action);
-                    tcp_connected_actions[key] = temp;
-                }
-            }
-            catch { }
-        }
-
-        public static void ClearActions(this TcpListener listener)
-        {
-            try
-            {
-                var key = listener.GetHashCode();
-                Delegate a;
-                if (tcp_connected_actions.TryRemove(key, out a))
-                {
-                    a = null;
-                }
-                CancellationTokenSource t;
-                if (task_tokens.TryRemove(key, out t))
-                {
-                    t.Cancel();
-                    t.Dispose();
-                }
-            }
-            catch { }
-        }
-
         #endregion
     }
 }

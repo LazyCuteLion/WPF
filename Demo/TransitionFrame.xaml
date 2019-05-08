@@ -9,6 +9,7 @@
              d:DesignHeight="450" d:DesignWidth="800">
     <Frame.Style>
         <Style TargetType="Frame">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Frame">

@@ -8,6 +8,8 @@
         mc:Ignorable="d" WindowState="Maximized"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <control:TransitionFrame x:Name="frame" Source="/Demo;component/Page3.xaml"/>
+        <control:TransitionFrame x:Name="frame" Source="/Demo;component/Page1.xaml"/>
+        <TextBlock Name="tbFPS" Foreground="#B2FF0000" FontSize="30" Margin="10"
+                   VerticalAlignment="Top" HorizontalAlignment="Left"/>
     </Grid>
 </Window>

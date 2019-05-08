@@ -303,6 +303,7 @@ namespace System.Windows.Controls
             }
 
             _sb?.Stop();
+            //_sb?.Remove();
             _sb?.Begin();
         }
 
