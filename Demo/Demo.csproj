@@ -66,6 +66,11 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="ChinesebrushCanvas.cs" />
+    <Compile Include="Extensions\CollectionExtension.cs" />
+    <Compile Include="FlipView.xaml.cs">
+      <DependentUpon>FlipView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GridPanel.cs" />
     <Compile Include="Hotkey\Extensions.cs" />
     <Compile Include="Hotkey\GlobalSuppressions.cs" />
     <Compile Include="Hotkey\Hotkey.cs" />
@@ -78,7 +83,7 @@
     <Compile Include="Hotkey\WeakReferenceCollection.cs" />
     <Compile Include="MatrixAnimation.cs" />
     <Compile Include="MultiTouchHelper.cs" />
-    <Compile Include="NetworkExtension.cs" />
+    <Compile Include="Extensions\NetworkExtension.cs" />
     <Compile Include="Page1.xaml.cs">
       <DependentUpon>Page1.xaml</DependentUpon>
     </Compile>
@@ -88,14 +93,25 @@
     <Compile Include="Page3.xaml.cs">
       <DependentUpon>Page3.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Page4.xaml.cs">
+      <DependentUpon>Page4.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Page5.xaml.cs">
+      <DependentUpon>Page5.xaml</DependentUpon>
+    </Compile>
     <Compile Include="PngSequenceBehavior.cs" />
-    <Compile Include="StringExtension.cs" />
-    <Compile Include="TaskExtension.cs" />
+    <Compile Include="Extensions\StringExtension.cs" />
+    <Compile Include="Extensions\TaskExtension.cs" />
+    <Compile Include="ScrollViewerHelper.cs" />
     <Compile Include="TransitionFrame.xaml.cs">
       <DependentUpon>TransitionFrame.xaml</DependentUpon>
     </Compile>
     <Compile Include="VisualTreeHelper.cs" />
     <Compile Include="VolumeHelper.cs" />
+    <Page Include="FlipView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -120,6 +136,14 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
     <Page Include="Page3.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Page4.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Page5.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

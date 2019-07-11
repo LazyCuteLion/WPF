@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -44,7 +45,7 @@ namespace System.Windows.Controls
         }
         public static readonly DependencyProperty TransitionTargetProperty =
             DependencyProperty.Register("TransitionTarget", typeof(TransitionTarget), typeof(TransitionFrame),
-                new PropertyMetadata(TransitionTarget.NewPage));
+                new PropertyMetadata(TransitionTarget.All));
 
         public Duration Duration
         {
@@ -52,7 +53,7 @@ namespace System.Windows.Controls
             set { SetValue(DurationProperty, value); }
         }
         public static readonly DependencyProperty DurationProperty =
-            DependencyProperty.Register("Duration", typeof(Duration), typeof(TransitionFrame), 
+            DependencyProperty.Register("Duration", typeof(Duration), typeof(TransitionFrame),
                 new PropertyMetadata(new Duration(TimeSpan.FromMilliseconds(500))));
 
         /// <summary>
@@ -69,7 +70,7 @@ namespace System.Windows.Controls
             obj.SetValue(InTransitionProperty, value);
         }
         public static readonly DependencyProperty InTransitionProperty =
-            DependencyProperty.RegisterAttached("InTransition", typeof(TransitionMode), typeof(TransitionFrame), 
+            DependencyProperty.RegisterAttached("InTransition", typeof(TransitionMode), typeof(TransitionFrame),
                 new PropertyMetadata(TransitionMode.Inherit));
 
         /// <summary>
@@ -86,7 +87,7 @@ namespace System.Windows.Controls
             obj.SetValue(OutTransitionProperty, value);
         }
         public static readonly DependencyProperty OutTransitionProperty =
-            DependencyProperty.RegisterAttached("OutTransition", typeof(TransitionMode), typeof(TransitionFrame), 
+            DependencyProperty.RegisterAttached("OutTransition", typeof(TransitionMode), typeof(TransitionFrame),
                 new PropertyMetadata(TransitionMode.Inherit));
 
 
@@ -98,13 +99,13 @@ namespace System.Windows.Controls
         {
             if (mode == TransitionMode.None)
                 return;
-            var modes = mode.ToString().Split(',').Select(m => (TransitionMode)Enum.Parse(typeof(TransitionMode), m)).ToArray();
-            Console.WriteLine("int:{0} {1}", (int)mode, mode.ToString());
-
+            //var modes = mode.ToString().Split(',').Select(m => (TransitionMode)Enum.Parse(typeof(TransitionMode), m)).ToArray();
+            //Console.WriteLine("int:{0} {1}", (int)mode, mode.ToString());
+            Debug.WriteLine(mode);
 
             Panel.SetZIndex(_thumb, -1);
 
-            if (modes.Contains(TransitionMode.Fade))
+            if ((mode & TransitionMode.Fade) == TransitionMode.Fade)
             {
                 var ani = new DoubleAnimation(0, 1, this.Duration);
                 Storyboard.SetTarget(ani, _content);
@@ -112,14 +113,14 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.TranslateFromLeft))
+            if ((mode & TransitionMode.TranslateFromLeft) == TransitionMode.TranslateFromLeft)
             {
                 var ani = new DoubleAnimation(0 - this.ActualWidth, 0, this.Duration);
                 Storyboard.SetTarget(ani, _content);
                 Storyboard.SetTargetProperty(ani, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[2].(TranslateTransform.X)"));
                 _sb.Children.Add(ani);
             }
-            else if (modes.Contains(TransitionMode.TranslateFromRight))
+            else if ((mode & TransitionMode.TranslateFromRight) == TransitionMode.TranslateFromRight)
             {
                 var ani = new DoubleAnimation(this.ActualWidth, 0, this.Duration);
                 Storyboard.SetTarget(ani, _content);
@@ -127,14 +128,14 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.TranslateFromTop))
+            if ((mode & TransitionMode.TranslateFromTop) == TransitionMode.TranslateFromTop)
             {
                 var ani = new DoubleAnimation(0 - this.ActualHeight, 0, this.Duration);
                 Storyboard.SetTarget(ani, _content);
                 Storyboard.SetTargetProperty(ani, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[2].(TranslateTransform.Y)"));
                 _sb.Children.Add(ani);
             }
-            else if (modes.Contains(TransitionMode.TranslateFromBottom))
+            else if ((mode & TransitionMode.TranslateFromBottom) == TransitionMode.TranslateFromBottom)
             {
                 var ani = new DoubleAnimation(this.ActualHeight, 0, this.Duration);
                 Storyboard.SetTarget(ani, _content);
@@ -142,7 +143,7 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.Scale))
+            if ((mode & TransitionMode.Scale) == TransitionMode.Scale)
             {
                 var ani1 = new DoubleAnimation(0, 1, this.Duration);
                 Storyboard.SetTarget(ani1, _content);
@@ -160,12 +161,12 @@ namespace System.Windows.Controls
         {
             if (mode == TransitionMode.None)
                 return;
-            var modes = mode.ToString().Split(',').Select(m => (TransitionMode)Enum.Parse(typeof(TransitionMode), m)).ToArray();
-            Console.WriteLine("int:{0} {1}", (int)mode, mode.ToString());
-
+            //var modes = mode.ToString().Split(',').Select(m => (TransitionMode)Enum.Parse(typeof(TransitionMode), m)).ToArray();
+            //Console.WriteLine("out:{0} {1}", (int)mode, mode.ToString());
+            Debug.WriteLine(mode);
             Panel.SetZIndex(_thumb, 1);
 
-            if (modes.Contains(TransitionMode.Fade))
+            if ((mode & TransitionMode.Fade) == TransitionMode.Fade)
             {
                 var ani = new DoubleAnimation(1, 0, this.Duration);
                 Storyboard.SetTarget(ani, _thumb);
@@ -173,14 +174,14 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.TranslateFromLeft))
+            if ((mode & TransitionMode.TranslateFromLeft) == TransitionMode.TranslateFromLeft)
             {
                 var ani = new DoubleAnimation(0, this.ActualWidth, this.Duration);
                 Storyboard.SetTarget(ani, _thumb);
                 Storyboard.SetTargetProperty(ani, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[2].(TranslateTransform.X)"));
                 _sb.Children.Add(ani);
             }
-            else if (modes.Contains(TransitionMode.TranslateFromRight))
+            else if ((mode & TransitionMode.TranslateFromRight) == TransitionMode.TranslateFromRight)
             {
                 var ani = new DoubleAnimation(0, 0 - this.ActualWidth, this.Duration);
                 Storyboard.SetTarget(ani, _thumb);
@@ -188,14 +189,14 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.TranslateFromTop))
+            if ((mode & TransitionMode.TranslateFromTop) == TransitionMode.TranslateFromTop)
             {
                 var ani = new DoubleAnimation(0, this.ActualHeight, this.Duration);
                 Storyboard.SetTarget(ani, _thumb);
                 Storyboard.SetTargetProperty(ani, new PropertyPath("(UIElement.RenderTransform).(TransformGroup.Children)[2].(TranslateTransform.Y)"));
                 _sb.Children.Add(ani);
             }
-            else if (modes.Contains(TransitionMode.TranslateFromBottom))
+            else if ((mode & TransitionMode.TranslateFromBottom) == TransitionMode.TranslateFromBottom)
             {
                 var ani = new DoubleAnimation(0, 0 - this.ActualHeight, this.Duration);
                 Storyboard.SetTarget(ani, _thumb);
@@ -203,7 +204,7 @@ namespace System.Windows.Controls
                 _sb.Children.Add(ani);
             }
 
-            if (modes.Contains(TransitionMode.Scale))
+            if ((mode & TransitionMode.Scale) == TransitionMode.Scale)
             {
                 var ani1 = new DoubleAnimation(1, 0, this.Duration);
                 Storyboard.SetTarget(ani1, _thumb);
@@ -232,37 +233,41 @@ namespace System.Windows.Controls
 
         private void TransitionFrame_Navigating(object sender, NavigatingCancelEventArgs e)
         {
-            if (this.TransitionMode == TransitionMode.None)
+            if (e.Cancel || this.TransitionMode == TransitionMode.None)
                 return;
+
             if (this.Content != null)
             {
-                var page = this.Content as Page;
-                var rtb = new RenderTargetBitmap((int)page.ActualWidth, (int)page.ActualHeight, 96, 96, PixelFormats.Pbgra32);
-                rtb.Render(page);
-                rtb.Freeze();
-                _thumb.Source = rtb;
-                _thumb.Visibility = Visibility.Visible;
-
-                _sb.Children.Clear();
-
-                var outMode = TransitionFrame.GetOutTransition(page);
-                if (outMode == TransitionMode.Inherit)
+                try
                 {
-                    if (TransitionMode == TransitionMode.Random)
-                    {
-                        outMode = GetRandomTransitionMode();
-                    }
-                    else
-                    {
-                        outMode = this.TransitionMode;
-                    }
-                }
+                    var page = this.Content as Page;
+                    var rtb = new RenderTargetBitmap((int)page.ActualWidth, (int)page.ActualHeight, 96, 96, PixelFormats.Pbgra32);
+                    rtb.Render(page);
+                    rtb.Freeze();
+                    _thumb.Source = rtb;
+                    _thumb.Visibility = Visibility.Visible;
 
-                if (outMode != TransitionMode.None)
-                {
-                    if (this.TransitionTarget != TransitionTarget.NewPage)
+                    _sb.Children.Clear();
+
+                    var outMode = TransitionFrame.GetOutTransition(page);
+                    if (outMode == TransitionMode.Inherit)
+                    {
+                        if (TransitionMode == TransitionMode.Random)
+                        {
+                            outMode = GetRandomTransitionMode();
+                        }
+                        else
+                        {
+                            outMode = this.TransitionMode;
+                        }
+                    }
+
+                    if (outMode != TransitionMode.None && this.TransitionTarget != TransitionTarget.NewPage)
+                    {
                         TransitionOut(outMode);
+                    }
                 }
+                catch { }
             }
         }
 
@@ -296,15 +301,15 @@ namespace System.Windows.Controls
                 }
             }
 
-            if (inMode != TransitionMode.None)
+            if (inMode != TransitionMode.None && this.TransitionTarget != TransitionTarget.OldPage)
             {
-                if (this.TransitionTarget != TransitionTarget.OldPage)
-                    TransitionIn(inMode);
+                TransitionIn(inMode);
             }
 
             _sb?.Stop();
             //_sb?.Remove();
             _sb?.Begin();
+
         }
 
         private void OnCompleted(object sender, EventArgs e)

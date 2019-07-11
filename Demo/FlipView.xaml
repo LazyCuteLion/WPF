@@ -1,0 +1,40 @@
+﻿<TreeView x:Class="System.Windows.Controls.FlipView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" x:Name="root" 
+             d:DesignHeight="450" d:DesignWidth="800" Loaded="OnLoaded"
+              BorderThickness="0" Margin="0" Padding="0"
+              VirtualizingPanel.IsVirtualizing="True"
+              VirtualizingPanel.VirtualizationMode="Recycling"
+              VirtualizingPanel.CacheLengthUnit="Page"
+              VirtualizingPanel.CacheLength="1"
+              ScrollViewer.PanningMode="None"
+              ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+              ScrollViewer.VerticalScrollBarVisibility="Hidden">
+    <TreeView.Resources>
+        <Style TargetType="TreeViewItem" x:Key="BaseItemStyle">
+            <Setter Property="Width" Value="{Binding ActualWidth,Mode=OneWay,ElementName=root}"/>
+            <Setter Property="Height" Value="{Binding ActualHeight,Mode=OneWay,ElementName=root}"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TreeViewItem">
+                        <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" 
+                                       Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" >
+                            <ContentPresenter Content="{Binding}" ContentTemplate="{TemplateBinding ItemTemplate}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </TreeView.Resources>
+    <TreeView.ItemsPanel>
+        <ItemsPanelTemplate>
+            <VirtualizingStackPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+    </TreeView.ItemsPanel>
+</TreeView>

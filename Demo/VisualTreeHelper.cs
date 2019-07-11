@@ -55,7 +55,7 @@ namespace System.Windows.Controls
                 }
                 else
                 {
-                   var child2 = child.FindChild<T>();
+                    var child2 = child.FindChild<T>();
                     if (child2 != null)
                         return child2;
                 }

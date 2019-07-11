@@ -240,9 +240,9 @@ namespace System.Windows.Media.Animation
 
         public void Begin()
         {
-            if (storyboard == null)
-                throw new Exception("Storyboard未初始化或已经释放！");
-            storyboard.Begin();
+            //if (storyboard == null)
+            //    throw new Exception("Storyboard未初始化或已经释放！");
+            storyboard?.Begin();
         }
 
         public void Pause()

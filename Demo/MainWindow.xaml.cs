@@ -35,14 +35,14 @@ namespace Demo
         }
 
 
-         void Test()
+        void Test()
         {
             var tcs = new CancellationTokenSource(100);
             for (int i = 0; i < 10000; i++)
             {
                 try
                 {
-                     Task.Delay(-1, CancellationToken.None);
+                    Task.Delay(-1, CancellationToken.None);
                 }
                 catch { }
             }

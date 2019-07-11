@@ -23,11 +23,10 @@ namespace System
 
         public static bool IsRunning(string id="")
         {
-            var isCreate = false;
             var current = Process.GetCurrentProcess();
-            if(string.IsNullOrEmpty(id))
+            if (string.IsNullOrEmpty(id))
                 id=current.ProcessName;
-            app = new Mutex(true, id, out isCreate);
+            app = new Mutex(true, id, out bool isCreate);
             if (!isCreate)
             {
                 var ps = Process.GetProcessesByName(current.ProcessName);

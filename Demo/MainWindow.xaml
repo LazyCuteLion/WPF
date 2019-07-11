@@ -3,12 +3,12 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:Demo"
+        xmlns:local="clr-namespace:Demo" 
         xmlns:control="clr-namespace:System.Windows.Controls"
         mc:Ignorable="d" WindowState="Maximized"
         Title="MainWindow" Height="450" Width="800">
     <Grid>
-        <control:TransitionFrame x:Name="frame" Source="/Demo;component/Page1.xaml"/>
+        <control:TransitionFrame x:Name="frame" Source="/Demo;component/Page5.xaml"/>
         <TextBlock Name="tbFPS" Foreground="#B2FF0000" FontSize="30" Margin="10"
                    VerticalAlignment="Top" HorizontalAlignment="Left"/>
     </Grid>

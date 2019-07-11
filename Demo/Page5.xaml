@@ -1,0 +1,94 @@
+﻿<Page x:Class="Demo.Page5"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:control="clr-namespace:System.Windows.Controls"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Page5">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.Resources>
+            <Style TargetType="ListBoxItem">
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Padding" Value="0"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Width" Value="200"/>
+                <Setter Property="Height" Value="300"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Grid>
+                                <Rectangle Fill="{Binding Content}"/>
+                                <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40"
+                                           Foreground="White" Text="{Binding Index}"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <!--<EventSetter Event="MouseDown" Handler="Rectangle_MouseDown"/>
+                <EventSetter Event="MouseUp" Handler="Rectangle_MouseUp"/>
+                <EventSetter Event="PreviewMouseDown" Handler="Rectangle_PreviewMouseDown"/>
+                <EventSetter Event="PreviewMouseUp" Handler="Rectangle_PreviewMouseUp"/>-->
+            </Style>
+        </Grid.Resources>
+
+        <TreeView Loaded="ListBox_Loaded" 
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.CacheLengthUnit="Page"
+                  VirtualizingPanel.CacheLength="3"
+                  Padding="0"  BorderThickness="0" 
+                  control:ScrollViewerHelper.UseMouse="True">
+            <TreeView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <VirtualizingStackPanel Orientation="Horizontal"  />
+                </ItemsPanelTemplate>
+            </TreeView.ItemsPanel>
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Width" Value="400"/>
+                    <Setter Property="Height" Value="300"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="TreeViewItem">
+                                <Grid >
+                                    <Rectangle Fill="{Binding Content,Mode=OneTime}"/>
+                                    <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40"
+                                           Foreground="White" Text="{Binding Index,Mode=OneTime}"/>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
+        <control:FlipView Loaded="ListBox_Loaded" Grid.Column="1" 
+                          IndexChanged="FlipView_IndexChanged" Duration="0:0:0.5"
+                          MouseRightButtonDown="FlipView_MouseRightButtonDown"  >
+            <control:FlipView.ItemTemplate>
+                <DataTemplate>
+                    <Grid >
+                        <Rectangle Fill="{Binding Content,Mode=OneTime}"/>
+                        <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40"
+                                           Foreground="White" Text="{Binding Index,Mode=OneTime}"/>
+                    </Grid>
+                </DataTemplate>
+            </control:FlipView.ItemTemplate>
+            <control:FlipView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem" >
+                    <Setter Property="Background" Value="Gray"/>
+                    <Setter Property="Padding" Value="20"/>
+                </Style>
+            </control:FlipView.ItemContainerStyle>
+        </control:FlipView>
+    </Grid>
+</Page>

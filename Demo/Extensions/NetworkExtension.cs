@@ -99,16 +99,14 @@ namespace System.Net.WebSockets
         {
             if (received == null)
                 throw new ArgumentNullException();
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
                 var data = new byte[65535];
                 while (true)
                 {
                     try
                     {
-                        var t = socket.ReceiveAsync(new ArraySegment<byte>(data), CancellationToken.None);
-                        t.Wait(token);
-                        var r = t.Result;
+                        var r = await socket.ReceiveAsync(new ArraySegment<byte>(data), token);
                         if (r.CloseStatus.HasValue)
                             break;
                         if (r.Count > 0)
@@ -264,10 +262,12 @@ namespace System.Net.Sockets
                        if (token.IsCancellationRequested)
                            break;
                    }
-                   catch
+                   catch (ObjectDisposedException e)
                    {
-                       break;
+                       if (e.ObjectName.EndsWith("UdpClient"))
+                           break;
                    }
+                   catch { continue; }
                }
                Debug.WriteLine("UdpClient[{0}] Receive Task is completed", lep);
                return udp;
@@ -401,8 +401,9 @@ namespace System.Net.Sockets
                     }
                     catch (SocketException e)
                     {
-                        if (e.SocketErrorCode != SocketError.WouldBlock)
+                        if (e.SocketErrorCode != SocketError.WouldBlock)//还在连接……先等等看
                             break;
+                        continue;
                     }
                     catch
                     {
