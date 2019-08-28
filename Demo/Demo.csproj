@@ -84,6 +84,7 @@
     <Compile Include="MatrixAnimation.cs" />
     <Compile Include="MultiTouchHelper.cs" />
     <Compile Include="Extensions\NetworkExtension.cs" />
+    <Compile Include="ResizableImage.cs" />
     <Compile Include="Page1.xaml.cs">
       <DependentUpon>Page1.xaml</DependentUpon>
     </Compile>

@@ -32,9 +32,7 @@ namespace System.Net
                 {
                     try
                     {
-                        var contextTask = listener.GetContextAsync();
-                        contextTask.Wait(token);
-                        var context = contextTask.Result;
+                        var context = listener.GetContext();
                         try { action(context); } catch { }
                         if (token.IsCancellationRequested)
                             break;
@@ -56,12 +54,12 @@ namespace System.Net.WebSockets
     {
         public static async Task ConnectAsync(this ClientWebSocket client, string uri)
         {
-            await client.ConnectAsync(new Uri(uri), CancellationToken.None);
+            await client.ConnectAsync(new Uri(uri), CancellationToken.None).ConfigureAwait(false);
         }
 
         public static async Task CloseAsync<T>(this T client) where T : WebSocket
         {
-            await client.CloseAsync(WebSocketCloseStatus.Empty, "", CancellationToken.None);
+            await client.CloseAsync(WebSocketCloseStatus.Empty, "", CancellationToken.None).ConfigureAwait(false);
         }
 
         public static async Task SendAsync<T>(this T client, string msg, Encoding encoding = null) where T : WebSocket
@@ -71,7 +69,7 @@ namespace System.Net.WebSockets
             if (encoding == null)
                 encoding = Encoding.UTF8;
             var data = encoding.GetBytes(msg);
-            await client.SendAsync(new ArraySegment<byte>(data), WebSocketMessageType.Text, true, CancellationToken.None);
+            await client.SendAsync(new ArraySegment<byte>(data), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
         }
 
         public static async Task SendAsync<T>(this T client, byte[] data, int index = 0, int length = -1) where T : WebSocket
@@ -84,7 +82,7 @@ namespace System.Net.WebSockets
                 length = data.Length - index;
             var temp = new byte[length];
             Array.Copy(data, index, temp, 0, length);
-            await client.SendAsync(new ArraySegment<byte>(temp), WebSocketMessageType.Text, true, CancellationToken.None);
+            await client.SendAsync(new ArraySegment<byte>(temp), WebSocketMessageType.Text, true, CancellationToken.None).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -205,14 +203,14 @@ namespace System.Net.WebSockets
             tokenSource = new CancellationTokenSource();
 
             return listener.WheneverAcceptContext(async (context) =>
-            {
-                if (context.Request.IsWebSocketRequest)
-                {
-                    var ws = await context.AcceptWebSocketAsync(null);
-                    var rep = context.Request.RemoteEndPoint;
-                    try { connected(ws.WebSocket, rep); } catch { }
-                }
-            }, tokenSource.Token);
+           {
+               if (context.Request.IsWebSocketRequest)
+               {
+                   var ws = await context.AcceptWebSocketAsync(null);
+                   var rep = context.Request.RemoteEndPoint;
+                   try { connected(ws.WebSocket, rep); } catch { }
+               }
+           }, tokenSource.Token);
 
         }
     }
@@ -229,7 +227,7 @@ namespace System.Net.Sockets
             if (encoding == null)
                 encoding = Encoding.UTF8;
             var data = encoding.GetBytes(msg);
-            return await client.SendAsync(data, data.Length, ip, port);
+            return await client.SendAsync(data, data.Length, ip, port).ConfigureAwait(false);
         }
 
         public static int Send(this UdpClient client, string msg, string ip, int port, Encoding encoding = null)
@@ -249,29 +247,31 @@ namespace System.Net.Sockets
         /// <returns></returns>
         public static Task<UdpClient> WheneverReceived(this UdpClient udp, Action<UdpReceiveResult> received, CancellationToken token)
         {
-            return Task.Run(() =>
-           {
-               var lep = udp.Client?.LocalEndPoint;
-               while (true)
-               {
-                   try
-                   {
-                       var t = udp.ReceiveAsync();
-                       t.Wait(token);
-                       try { received(t.Result); } catch { }
-                       if (token.IsCancellationRequested)
-                           break;
-                   }
-                   catch (ObjectDisposedException e)
-                   {
-                       if (e.ObjectName.EndsWith("UdpClient"))
-                           break;
-                   }
-                   catch { continue; }
-               }
-               Debug.WriteLine("UdpClient[{0}] Receive Task is completed", lep);
-               return udp;
-           }, token);
+           return Task.Run(() =>
+          {
+              var lep = udp.Client?.LocalEndPoint;
+              IPEndPoint remoteEP = null;
+              while (true)
+              {
+                  try
+                  {
+                      var data = udp.Receive(ref remoteEP);
+                      var r = new UdpReceiveResult(data, remoteEP);
+                      try { received(r); } catch { }
+
+                      if (token.IsCancellationRequested)
+                          break;
+                  }
+                  catch (ObjectDisposedException e)
+                  {
+                      if (e.ObjectName.EndsWith("UdpClient"))
+                          break;
+                  }
+                  catch { continue; }
+              }
+              Debug.WriteLine("UdpClient[{0}] Receive Task is completed", lep);
+              return udp;
+          }, token);
         }
 
         /// <summary>
@@ -328,7 +328,7 @@ namespace System.Net.Sockets
             if (length < index)
                 throw new ArgumentOutOfRangeException("index,length", "index 不能大于 length");
             var stream = client.GetStream();
-            await stream.WriteAsync(data, index, length);
+            await stream.WriteAsync(data, index, length).ConfigureAwait(false);
         }
 
         public static async Task SendAsync(this TcpClient client, string msg, Encoding encoding = null)
@@ -336,7 +336,7 @@ namespace System.Net.Sockets
             if (encoding == null)
                 encoding = Encoding.UTF8;
             var data = encoding.GetBytes(msg);
-            await client.SendAsync(data);
+            await client.SendAsync(data).ConfigureAwait(false);
         }
 
         public static IPEndPoint GetRemoteEndPoint(this TcpClient client)
@@ -372,47 +372,47 @@ namespace System.Net.Sockets
                 throw new SocketException((int)SocketError.NotConnected);
 
             return Task.Run(() =>
-            {
-                var socket = client.Client;
-                while (client.Connected)
-                {
-                    try
-                    {
-                        if (socket.Poll(100, SelectMode.SelectRead))
-                        {
-                            var data = new byte[client.ReceiveBufferSize];
-                            var length = socket.Receive(data);
-                            if (length > 0)
-                            {
-                                var temp = new byte[length];
-                                Array.Copy(data, temp, length);
-                                Array.Clear(data, 0, data.Length);
-                                try { received(client, temp); } catch { }
-                            }
-                            else
-                            {
-                                break;
-                            }
-                        }
-                        else if (socket.Poll(100, SelectMode.SelectError))
-                            break;
-                        if (token.IsCancellationRequested)
-                            break;
-                    }
-                    catch (SocketException e)
-                    {
-                        if (e.SocketErrorCode != SocketError.WouldBlock)//还在连接……先等等看
-                            break;
-                        continue;
-                    }
-                    catch
-                    {
-                        break;
-                    }
-                }
-                Debug.WriteLine("TcpClient[{0}] Receive Task is completed", socket.RemoteEndPoint);
-                return client;
-            }, token);
+           {
+               var socket = client.Client;
+               while (client.Connected)
+               {
+                   try
+                   {
+                       if (socket.Poll(100, SelectMode.SelectRead))
+                       {
+                           var data = new byte[client.ReceiveBufferSize];
+                           var length = socket.Receive(data);
+                           if (length > 0)
+                           {
+                               var temp = new byte[length];
+                               Array.Copy(data, temp, length);
+                               Array.Clear(data, 0, data.Length);
+                               try { received(client, temp); } catch { }
+                           }
+                           else
+                           {
+                               break;
+                           }
+                       }
+                       else if (socket.Poll(100, SelectMode.SelectError))
+                           break;
+                       if (token.IsCancellationRequested)
+                           break;
+                   }
+                   catch (SocketException e)
+                   {
+                       if (e.SocketErrorCode != SocketError.WouldBlock)//可能还在连接……先等等看
+                           break;
+                       continue;
+                   }
+                   catch
+                   {
+                       break;
+                   }
+               }
+               Debug.WriteLine("TcpClient[{0}] Receive Task is completed", socket.RemoteEndPoint);
+               return client;
+           }, token);
         }
 
         #endregion
@@ -442,22 +442,25 @@ namespace System.Net.Sockets
                 throw new ArgumentNullException();
             listener.Start();
             return Task.Run(() =>
-            {
-                while (true)
-                {
-                    try
-                    {
-                        var t = listener.AcceptTcpClientAsync();
-                        t.Wait(token);
-                        try { connected(t.Result); } catch { }
-                        if (token.IsCancellationRequested)
-                            break;
-                    }
-                    catch { break; }
-                }
-                Debug.WriteLine("TcpListener[{0}] AcceptTcpClient Task is completed", listener.LocalEndpoint);
-                return listener;
-            }, token);
+           {
+               while (true)
+               {
+                   try
+                   {
+                       //var t = listener.AcceptTcpClientAsync();
+                       //t.Wait(token);
+                       //try { connected(t.Result); } catch { }
+                       var r = listener.AcceptTcpClient();
+                       try { connected(r); } catch { }
+
+                       if (token.IsCancellationRequested)
+                           break;
+                   }
+                   catch { break; }
+               }
+               Debug.WriteLine("TcpListener[{0}] AcceptTcpClient Task is completed", listener.LocalEndpoint);
+               return listener;
+           }, token);
         }
         #endregion
     }

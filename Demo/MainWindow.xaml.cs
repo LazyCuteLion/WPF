@@ -31,21 +31,6 @@ namespace Demo
             stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            Test();
-        }
-
-
-        void Test()
-        {
-            var tcs = new CancellationTokenSource(100);
-            for (int i = 0; i < 10000; i++)
-            {
-                try
-                {
-                    Task.Delay(-1, CancellationToken.None);
-                }
-                catch { }
-            }
         }
 
 
@@ -65,24 +50,37 @@ namespace Demo
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            var index = int.Parse(frame.Content.ToString().Substring(9));
-            switch (e.Key)
+            try
             {
-                case Key.Left:
-                    if (index > 1)
-                        index -= 1;
-                    frame.Navigate(new Uri($"page{index}.xaml", UriKind.Relative));
-                    break;
-                case Key.Right:
-                    if (index < 3)
-                        index += 1;
-                    frame.Navigate(new Uri($"page{index}.xaml", UriKind.Relative));
-                    break;
+                var index = int.Parse(frame.Content.ToString().Substring(9));
+
+                switch (e.Key)
+                {
+                    case Key.Left:
+                        frame.Navigate(new Uri($"page{--index}.xaml", UriKind.Relative));
+                        break;
+                    case Key.Right:
+                        frame.Navigate(new Uri($"page{++index}.xaml", UriKind.Relative));
+                        break;
+                    case Key.NumPad1:
+                    case Key.NumPad2:
+                    case Key.NumPad3:
+                    case Key.NumPad4:
+                    case Key.NumPad5:
+                    case Key.NumPad6:
+                    case Key.NumPad7:
+                    case Key.NumPad8:
+                    case Key.NumPad9:
+                        frame.Navigate(new Uri($"page{e.Key.ToString().Substring(6)}.xaml", UriKind.Relative));
+                        break;
+                }
+
             }
+            catch { }
 
             base.OnKeyDown(e);
         }
 
-
+        
     }
 }

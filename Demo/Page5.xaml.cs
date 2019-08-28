@@ -24,7 +24,7 @@ namespace Demo
         {
             InitializeComponent();
         }
-
+     
         private void Rectangle_MouseDown(object sender, MouseButtonEventArgs e)
         {
             Console.WriteLine("item mousedown");
@@ -66,5 +66,25 @@ namespace Demo
         {
             (sender as FlipView).Index = 10;
         }
+
+        private void TreeView_Loaded(object sender, RoutedEventArgs e)
+        {
+            var view = sender as ItemsControl;
+            var list = new List<object>();
+            var rd = new Random();
+            for (int i = 0; i < 10000; i++)
+            {
+                var count = rd.Next(10, 100);
+                var items = new object[count];
+                for (int j = 0; j < count; j++)
+                {
+                    items[j] = new { Index = i + "-" + j, Content = j % 2 == 0 ? "Blue" : "Green" };
+                }
+                list.Add(items);
+            }
+            view.ItemsSource = list;
+        }
+
+
     }
 }

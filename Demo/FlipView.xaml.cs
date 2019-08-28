@@ -76,11 +76,12 @@ namespace System.Windows.Controls
             var style = this.ItemContainerStyle;
             if (style == null)
             {
-                style = this.Resources["BaseItemStyle"] as Style;
+                this.ItemContainerStyle = this.Resources["BaseItemStyle"] as Style;
             }
             else
             {
                 style.BasedOn = this.Resources["BaseItemStyle"] as Style;
+                this.ItemContainerStyle = style;
             }
 
             var b = VisualTreeHelper.GetChild(root, 0) as Border;

@@ -17,8 +17,27 @@ namespace System.Threading.Tasks
         /// <returns></returns>
         public static async Task WaitAsync(this Task task, int timeout)
         {
-            if (!await Task.Run(() => { return task.Wait(timeout); }))
-                throw new TimeoutException();
+            if (timeout <= 0)
+                throw new ArgumentException("timeout 必须大于0");
+
+            if (task.IsCompleted)
+                await task;
+
+            using (var cts = new CancellationTokenSource())
+            {
+                var r = await Task.WhenAny(task, Task.Delay(timeout, cts.Token)).ConfigureAwait(false);
+                if (r == task)
+                {
+                    if (!cts.IsCancellationRequested)
+                    {
+                        cts.Cancel();
+                    }
+                }
+                else
+                {
+                    throw new TimeoutException();
+                }
+            }
         }
 
         /// <summary>
@@ -30,9 +49,28 @@ namespace System.Threading.Tasks
         /// <returns></returns>
         public static async Task<T> WaitAsync<T>(this Task<T> task, int timeout)
         {
-            if (await Task.Run(() => { return task.Wait(timeout); }))
+            if (timeout <= 0)
+                throw new ArgumentException("timeout 必须大于0");
+
+            if (task.IsCompleted)
                 return task.Result;
-            throw new TimeoutException();
+
+            using (var cts = new CancellationTokenSource())
+            {
+                var r = await Task.WhenAny(task, Task.Delay(timeout, cts.Token)).ConfigureAwait(false);
+                if (r == task)
+                {
+                    if (!cts.IsCancellationRequested)
+                    {
+                        cts.Cancel();
+                    }
+                    return task.Result;
+                }
+                else
+                {
+                    throw new TimeoutException();
+                }
+            }
         }
 
         /// <summary>
@@ -43,8 +81,20 @@ namespace System.Threading.Tasks
         /// <returns></returns>
         public static async Task WaitAsync(this Task task, CancellationToken token)
         {
-            if (!await Task.Run(() => { try { return task.Wait(-1, token); } catch { return false; } }))
-                throw new TaskCanceledException();
+            if (!token.CanBeCanceled)
+                await task;
+
+            if (token.IsCancellationRequested)
+                throw new TimeoutException();
+
+            var tcs = new TaskCompletionSource<bool>();
+            var ctr = token.RegisterWidth(tcs, (s) => { s.TrySetResult(false); });
+            var r = await Task.WhenAny(task, tcs.Task);
+            ctr.Dispose();
+            if (r != task)
+            {
+                throw new TimeoutException();
+            }
         }
 
         /// <summary>
@@ -56,28 +106,24 @@ namespace System.Threading.Tasks
         /// <returns></returns>
         public static async Task<T> WaitAsync<T>(this Task<T> task, CancellationToken token)
         {
-            if (await Task.Run(() => { try { return task.Wait(-1, token); } catch { return false; } }))
-                return task.Result;
-            throw new TaskCanceledException();
-        }
+            if (!token.CanBeCanceled)
+                return await task;
+            if (token.IsCancellationRequested)
+                throw new TimeoutException();
 
-        /// <summary>
-        /// 封装“无法取消”的任务
-        /// </summary>
-        /// <typeparam name="T">返回类型</typeparam>
-        /// <param name="task">无法传入CancellationToken的任务</param>
-        /// <param name="watcher">可取消的无限等待任务[Task.Delay(-1,CancellationToken)]</param>
-        /// <returns></returns>
-        public static async Task<T> WaitAsync<T>(this Task<T> task, Task watcher)
-        {
-            var r = await Task.WhenAny(task, watcher);
+            var tcs = new TaskCompletionSource<bool>();
+            var ctr = token.RegisterWidth(tcs, (s) => { s.TrySetResult(false); });
+            var r = await Task.WhenAny(task, tcs.Task);
+            ctr.Dispose();
             if (r == task)
             {
                 return task.Result;
             }
-            throw new TaskCanceledException();
+            else
+            {
+                throw new TimeoutException();
+            }
         }
-
 
         public static CancellationTokenRegistration RegisterWidth<T>(this CancellationToken token, T state, Action<T> action)
         {

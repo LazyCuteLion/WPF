@@ -38,7 +38,7 @@
             </Style>
         </Grid.Resources>
 
-        <TreeView Loaded="ListBox_Loaded" 
+        <TreeView Loaded="TreeView_Loaded" 
                   VirtualizingPanel.IsVirtualizing="True"
                   VirtualizingPanel.VirtualizationMode="Recycling"
                   VirtualizingPanel.CacheLengthUnit="Page"
@@ -55,16 +55,26 @@
                     <Setter Property="Margin" Value="0"/>
                     <Setter Property="Padding" Value="0"/>
                     <Setter Property="BorderThickness" Value="0"/>
-                    <Setter Property="Width" Value="400"/>
-                    <Setter Property="Height" Value="300"/>
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="TreeViewItem">
-                                <Grid >
-                                    <Rectangle Fill="{Binding Content,Mode=OneTime}"/>
-                                    <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40"
-                                           Foreground="White" Text="{Binding Index,Mode=OneTime}"/>
-                                </Grid>
+                                <ItemsControl BorderThickness="0" Padding="0" FocusVisualStyle="{x:Null}"
+                                         ItemsSource="{Binding Mode=OneTime}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Width="400" Height="300">
+                                                <Rectangle Fill="{Binding Content,Mode=OneTime}"/>
+                                                <TextBlock VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="40"
+                                                                Foreground="White" Text="{Binding Index,Mode=OneTime}"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
