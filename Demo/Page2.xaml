@@ -25,19 +25,19 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" >
-            <Image  Source="F:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\乘风启航\乘风启航_00001.png">
+            <Image  Source="">
                 <ani:ImageExt.SequenceFrameAnimation>
                     <ani:SequenceFrameAnimation DecodePixelWidth="400"   />
                 </ani:ImageExt.SequenceFrameAnimation>
             </Image>
 
-            <Image  Source="F:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\国际战略\国际战略_00001.png">
+            <Image  Source="">
                 <ani:ImageExt.SequenceFrameAnimation>
                     <ani:SequenceFrameAnimation DecodePixelWidth="400"   />
                 </ani:ImageExt.SequenceFrameAnimation>
             </Image>
 
-            <Image  Source="F:\项目\北京悦康\发展大事记\BigEvents\bin\Debug\Images\日益精进\日益精进_00001.png">
+            <Image  Source="">
                 <ani:ImageExt.SequenceFrameAnimation>
                     <ani:SequenceFrameAnimation DecodePixelWidth="400"   Completed="SequenceFrameAnimation_Completed"/>
                 </ani:ImageExt.SequenceFrameAnimation>
